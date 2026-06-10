@@ -173,7 +173,7 @@ export function ExhibitionApp() {
         </div>
       </header>
 
-      <aside className="glass-panel absolute bottom-4 left-4 z-20 max-w-[calc(100vw-2rem)] rounded-sm px-4 py-3 sm:bottom-6 sm:left-6">
+      <aside className="glass-panel absolute bottom-20 left-4 z-20 max-w-[calc(100vw-2rem)] rounded-sm px-4 py-3 sm:bottom-6 sm:left-6">
         <p className="flex items-center gap-2 text-xs font-bold text-[#23465e]"><Info aria-hidden="true" className="h-4 w-4" />전시관 조작 안내</p>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-semibold text-[#5b6874]">
           {isTouchDevice ? (
@@ -194,7 +194,7 @@ export function ExhibitionApp() {
 
       {/* 가상 방향키 (D-pad) */}
       {isTouchDevice && (
-        <div className="absolute bottom-4 right-4 z-20 flex flex-col items-center gap-1 bg-white/10 p-3 rounded-full border border-white/20 backdrop-blur-md shadow-lg select-none">
+        <div className="absolute bottom-20 right-4 z-20 flex flex-col items-center gap-1 bg-white/10 p-3 rounded-full border border-white/20 backdrop-blur-md shadow-lg select-none sm:bottom-8">
           <button
             className="flex h-11 w-11 items-center justify-center rounded-full bg-white/40 border border-white/20 active:bg-white/80 active:scale-95 transition"
             onTouchStart={(e) => {

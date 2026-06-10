@@ -21,6 +21,7 @@ body {
   color: var(--foreground);
   font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", Arial,
     sans-serif;
+  overscroll-behavior-y: none;
 }
 
 button,
