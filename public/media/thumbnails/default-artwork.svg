@@ -1,0 +1,9 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#123553"/>
+  <circle cx="1025" cy="155" r="255" fill="#2D5A49" fill-opacity=".62"/>
+  <circle cx="190" cy="680" r="330" fill="#8475A8" fill-opacity=".44"/>
+  <path d="M130 150H1150" stroke="#F5F3EE" stroke-opacity=".22" stroke-width="2"/>
+  <path d="M130 570H1150" stroke="#F5F3EE" stroke-opacity=".22" stroke-width="2"/>
+  <text x="130" y="335" fill="#FBFAF7" font-family="Arial, sans-serif" font-size="70" font-weight="700">HANHOLL VIDEO EXHIBITION</text>
+  <text x="134" y="405" fill="#D8E3E2" font-family="Arial, sans-serif" font-size="30" letter-spacing="8">STUDENT SHOWCASE</text>
+</svg>
