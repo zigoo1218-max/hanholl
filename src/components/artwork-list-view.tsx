@@ -73,24 +73,30 @@ export function ArtworkListView({ artworks, onBack, onSelect, canReturnTo3d, onR
   return (
     <main className="min-h-screen bg-[#eef1ef] text-[#071a2c]">
       <header className="border-b border-[#d4dce0] bg-[#fbfaf7]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3.5 sm:gap-4 sm:px-6 sm:py-5">
           <div>
-            <p className="text-xs font-bold tracking-[0.18em] text-[#5e8a79]">HANHOLL VIDEO EXHIBITION</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">작품 목록 보기</h1>
+            <p className="hidden text-xs font-bold tracking-[0.18em] text-[#5e8a79] sm:block">HANHOLL VIDEO EXHIBITION</p>
+            <h1 className="mt-0.5 text-lg font-bold tracking-tight text-[#071a2c] sm:mt-1 sm:text-2xl">작품 목록 보기</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {onReturnToEntrance && (
               <button
-                className="flex items-center gap-2 rounded-sm border border-[#b7c4c9] bg-white px-4 py-3 text-sm font-bold text-[#b45b5b] transition hover:bg-[#faeded]"
+                className="flex items-center gap-1.5 rounded-sm border border-[#b7c4c9] bg-white p-2 text-xs font-bold text-[#b45b5b] transition hover:bg-[#faeded] sm:px-4 sm:py-2.5 sm:text-sm sm:gap-2"
                 type="button"
                 onClick={onReturnToEntrance}
               >
-                <Home aria-hidden="true" className="h-4 w-4" />처음 화면으로
+                <Home aria-hidden="true" className="h-4 w-4" />
+                <span className="hidden sm:inline">처음 화면으로</span>
               </button>
             )}
             {canReturnTo3d && (
-              <button className="flex items-center gap-2 rounded-sm border border-[#b7c4c9] bg-white px-4 py-3 text-sm font-bold transition hover:bg-[#edf1ef]" type="button" onClick={onBack}>
-                <ArrowLeft aria-hidden="true" className="h-4 w-4" />3D 전시관
+              <button
+                className="flex items-center gap-1.5 rounded-sm border border-[#b7c4c9] bg-white p-2 text-xs font-bold transition hover:bg-[#edf1ef] sm:px-4 sm:py-2.5 sm:text-sm sm:gap-2"
+                type="button"
+                onClick={onBack}
+              >
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                <span className="hidden sm:inline">3D 전시관</span>
               </button>
             )}
           </div>

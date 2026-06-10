@@ -292,17 +292,41 @@ function VisitorController({ hallLength }: { hallLength: number }) {
       pitch.current = THREE.MathUtils.clamp(pitch.current - deltaY * 0.003, -0.72, 0.72);
     };
 
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 1) {
+        dragging.current = true;
+        previousPointer.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      }
+    };
+    const onTouchEnd = () => {
+      dragging.current = false;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!dragging.current || event.touches.length !== 1) return;
+      const deltaX = event.touches[0].clientX - previousPointer.current.x;
+      const deltaY = event.touches[0].clientY - previousPointer.current.y;
+      previousPointer.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      yaw.current -= deltaX * 0.004;
+      pitch.current = THREE.MathUtils.clamp(pitch.current - deltaY * 0.003, -0.72, 0.72);
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchmove", onTouchMove);
     };
   }, []);
 
