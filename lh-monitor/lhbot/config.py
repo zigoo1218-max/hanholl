@@ -73,7 +73,7 @@ class Settings:
     data_go_kr_api_key: str = ""
     target_regions: list[str] = field(default_factory=lambda: list(REGION_ALIASES))
     include_rental: bool = True
-    enable_sh: bool = True
+    enable_sh: bool = False
     enable_myhome: bool = True
     enable_applyhome: bool = True
     myhome_api_key: str = ""
@@ -121,7 +121,7 @@ def load_settings(env_file: str | None = None) -> Settings:
         enable_applyhome=_bool("ENABLE_APPLYHOME", True),
         target_regions=regions,
         include_rental=_bool("INCLUDE_RENTAL", True),
-        enable_sh=_bool("ENABLE_SH", True),
+        enable_sh=_bool("ENABLE_SH", False),
         lookback_days=_int("LOOKBACK_DAYS", 30),
         check_detail=_bool("CHECK_DETAIL", True),
         max_detail_fetch=_int("MAX_DETAIL_FETCH", 30),
