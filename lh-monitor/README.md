@@ -184,11 +184,11 @@ python monitor.py                  # 3) 실제 실행 (신규 공고 발송)
 `REGION_ALIASES`, `SALE_TYPE_RULES`, `RENTAL_TYPE_RULES` 에서 고칠 수 있습니다.
 `TARGET_REGIONS` 에 새 지구(예: `고양창릉`)를 넣으면 그 이름 자체가 키워드로 쓰입니다.
 
-## 5. 주기 실행 (1~2시간마다)
+## 5. 주기 실행 (12시간마다)
 
 ### A. GitHub Actions (PC를 켜둘 필요 없음)
 
-워크플로 파일: [`.github/workflows/lh-monitor.yml`](../.github/workflows/lh-monitor.yml) — 매시 17분 실행
+워크플로 파일: [`.github/workflows/lh-monitor.yml`](../.github/workflows/lh-monitor.yml) — 하루 2번, 한국시간 **08:17, 20:17** 실행
 
 1. 저장소 **Settings > Secrets and variables > Actions > New repository secret** 에 등록
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, (선택) `DATA_GO_KR_API_KEY`
@@ -198,11 +198,11 @@ python monitor.py                  # 3) 실제 실행 (신규 공고 발송)
    - `test-telegram` → 연결 확인
    - `init` → 지난 공고 알림 없이 시작하고 싶을 때 처음 한 번
    - `run` → 일반 실행
-4. 2시간 주기로 바꾸려면 cron 을 `'17 */2 * * *'` 로 수정
+4. 주기를 바꾸려면 워크플로 파일의 cron 을 수정 (UTC 기준이라 한국시간에서 9시간을 뺌). 예: 하루 1번 오전 8시 → `'17 23 * * *'`
 
 참고
 - 발송 이력(`data/state.db`)은 **Actions 캐시**로 실행 사이에 이어집니다. 캐시는 7일간 안 쓰면 삭제되는데,
-  매시간 돌기 때문에 유지됩니다. 혹시 캐시가 사라지면 최근 `LOOKBACK_DAYS` 이내 공고가 한 번 더 올 수 있습니다.
+  하루 2번 돌기 때문에 유지됩니다. 혹시 캐시가 사라지면 최근 `LOOKBACK_DAYS` 이내 공고가 한 번 더 올 수 있습니다.
 - GitHub 스케줄은 수 분~수십 분 늦게 시작될 수 있습니다.
 - 공개 저장소는 60일간 커밋이 없으면 스케줄 워크플로가 자동으로 꺼집니다. Actions 탭에서 다시 켜면 됩니다.
 - GitHub 서버는 해외에 있어서, 혹시 LH/SH 웹사이트가 해외 접속을 막으면 웹 조회가 실패할 수 있습니다.
@@ -211,22 +211,22 @@ python monitor.py                  # 3) 실제 실행 (신규 공고 발송)
 ### B. Linux / macOS crontab
 
 ```bash
-chmod +x /경로/hanholl/lh-monitor/run_monitor.sh
+chmod +x /경로/lh-monitor/run_monitor.sh
 crontab -e
 ```
 
-아래 한 줄 추가 (매시 17분, 로그는 `lh-monitor/data/monitor.log`):
+아래 한 줄 추가 (매일 08:17, 20:17, 로그는 `lh-monitor/data/monitor.log`):
 
 ```cron
-17 * * * * /경로/hanholl/lh-monitor/run_monitor.sh
+17 8,20 * * * /경로/lh-monitor/run_monitor.sh
 ```
 
-2시간마다: `17 */2 * * *`  /  낮 시간(07~23시)만: `17 7-23 * * *`
+하루 1번(오전 8시): `17 8 * * *`
 
 `run_monitor.sh` 는 처음 실행될 때 `.venv` 를 만들고 패키지를 설치합니다. 등록 전에 한 번 직접 실행해보는 걸 권장합니다.
 
 ```bash
-/경로/hanholl/lh-monitor/run_monitor.sh --test-telegram && tail data/monitor.log
+/경로/lh-monitor/run_monitor.sh --test-telegram && tail data/monitor.log
 ```
 
 ### C. Windows 작업 스케줄러
@@ -234,10 +234,10 @@ crontab -e
 관리자 권한이 필요 없는 명령 프롬프트(cmd)에서:
 
 ```bat
-schtasks /Create /SC HOURLY /MO 1 /TN "LH공고알림" /TR "\"C:\경로\hanholl\lh-monitor\run_monitor.bat\""
+schtasks /Create /SC HOURLY /MO 12 /ST 08:17 /TN "LH공고알림" /TR "\"C:\경로\lh-monitor\run_monitor.bat\""
 ```
 
-- 2시간마다: `/MO 2`
+- 08:17부터 12시간마다 실행 (08:17, 20:17). 하루 1번은 `/SC DAILY /ST 08:17`
 - 바로 한 번 실행: `schtasks /Run /TN "LH공고알림"`
 - 삭제: `schtasks /Delete /TN "LH공고알림" /F`
 - 로그: `lh-monitor\data\monitor.log`
@@ -257,5 +257,5 @@ python -m unittest discover -s tests -v
 
 - **사이트 구조 변경**: LH/SH 가 화면을 개편하면 웹 조회 파서가 공고를 못 읽을 수 있습니다.
   이때 로그에 `조회된 공고가 없습니다` 가 찍히고 GitHub Actions 는 실패(빨간불)로 표시됩니다. API 키를 함께 쓰면 안전합니다.
-- **이용 예절**: 공개 목록만 읽고, 요청 간격 1초 + 1~2시간 주기로 부담이 거의 없습니다. 주기를 너무 짧게(예: 1분) 바꾸지 마세요.
+- **이용 예절**: 공개 목록만 읽고, 요청 간격 1초 + 12시간 주기로 부담이 거의 없습니다. 주기를 너무 짧게(예: 1분) 바꾸지 마세요.
 - **알림 기준**: 공고일자·내용은 요약이므로 청약 자격/일정은 반드시 링크의 원문 공고문으로 확인하세요.
