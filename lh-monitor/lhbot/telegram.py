@@ -9,6 +9,7 @@ import time
 import requests
 
 from .models import Notice
+from .sources import redact
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,11 @@ def format_message(n: Notice) -> str:
         lines.append(f"- 마감일자: {e(n.close_date)}")
     if n.status:
         lines.append(f"- 진행상태: {e(n.status)}")
-    lines.append(f"- 출처: {e(n.source)}{' (본문에서 지구명 확인)' if n.matched_in_detail else ''}")
+    if n.supplier:
+        lines.append(f"- 공급기관: {e(n.supplier)}")
+    if n.address:
+        lines.append(f"- 공급위치: {e(n.address)}")
+    lines.append(f"- 출처: {e(n.source)}{f' ({e(n.match_note)})' if n.match_note else ''}")
     lines.append(f'- 바로가기 링크: <a href="{e(n.url, quote=True)}">{e(n.url)}</a>')
     return "\n".join(lines)
 
@@ -54,7 +59,7 @@ class TelegramClient:
             try:
                 resp = requests.post(self.url, json=payload, timeout=self.timeout)
             except requests.RequestException as exc:
-                log.warning("텔레그램 전송 실패 (%d/%d): %s", attempt, retries, exc)
+                log.warning("텔레그램 전송 실패 (%d/%d): %s", attempt, retries, redact(str(exc)))
                 time.sleep(2 * attempt)
                 continue
             if resp.status_code == 429:  # 전송 속도 제한 → 안내된 시간만큼 대기

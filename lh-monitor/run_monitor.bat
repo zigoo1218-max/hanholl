@@ -1,5 +1,5 @@
 @echo off
-rem LH/SH notice monitor - run once (Windows Task Scheduler entry point)
+rem Housing notice monitor - run once (Windows Task Scheduler entry point)
 chcp 65001 > nul
 set PYTHONUTF8=1
 cd /d "%~dp0"

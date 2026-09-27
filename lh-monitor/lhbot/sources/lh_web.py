@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from ..config import today_kst
 from ..models import Notice
-from . import PoliteClient
+from . import PoliteClient, to_iso
 
 log = logging.getLogger(__name__)
 
@@ -30,12 +30,7 @@ BOARDS = {
     "rental": {"mi": "1026", "srchUppAisTpCd": "061339", "uppAisTpCd": "06"},
 }
 
-_DATE = re.compile(r"(\d{4})[.\-](\d{2})[.\-](\d{2})")
-
-
-def _iso(text: str) -> str:
-    m = _DATE.search(text or "")
-    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else ""
+_DATE = re.compile(r"\d{4}\.\d{2}\.\d{2}")
 
 
 def detail_url(pan_id: str, ccr: str, upp: str, ais: str) -> str:
@@ -62,7 +57,7 @@ def parse_list(html: str) -> list[Notice]:
         ccr, upp, ais = a.get("data-id2", ""), a.get("data-id3", ""), a.get("data-id4", "")
 
         tds = tr.find_all("td")
-        dates = [_iso(td.get_text()) for td in tds if _DATE.search(td.get_text())]
+        dates = [to_iso(td.get_text()) for td in tds if _DATE.search(td.get_text())]
         cate = tr.select_one("td.cate.col1")
         area = tr.select_one("td.cate.col2")
         stt = tr.select_one("td.stt")

@@ -12,16 +12,21 @@ sys.path.insert(0, str(ROOT))
 from lhbot.config import Settings  # noqa: E402
 from lhbot.filters import apply_filter, classify_types, match_regions  # noqa: E402
 from lhbot.models import Notice  # noqa: E402
+from lhbot.sources.applyhome_api import row_to_notice as applyhome_notice  # noqa: E402
 from lhbot.sources.lh_api import row_to_notice  # noqa: E402
+from lhbot.sources.myhome_api import item_to_notice as myhome_notice  # noqa: E402
+from lhbot.sources.myhome_api import MyHomeApiError, parse_response  # noqa: E402
 from lhbot.sources.lh_web import parse_list as parse_lh  # noqa: E402
 from lhbot.sources.sh_web import parse_list as parse_sh  # noqa: E402
 from lhbot.store import StateStore  # noqa: E402
 from lhbot.telegram import format_message, to_plain  # noqa: E402
+from monitor import drop_cross_source_duplicates  # noqa: E402
 
 FIX = ROOT / "tests" / "fixtures"
 SETTINGS = Settings()
 REGIONS = SETTINGS.region_aliases()
 RULES = SETTINGS.type_rules()
+ADDRS = SETTINGS.address_aliases()
 
 
 def _n(title: str, category: str = "", uid: str = "LH:1") -> Notice:
@@ -55,7 +60,7 @@ class FilterTest(unittest.TestCase):
         self.assertFalse(apply_filter(n, REGIONS, RULES))
         self.assertTrue(apply_filter(n, REGIONS, RULES, detail_text="공급위치: 부천대장 A-5블록"))
         self.assertEqual(n.regions, ["부천대장"])
-        self.assertTrue(n.matched_in_detail)
+        self.assertEqual(n.match_note, "본문에서 지구명 확인")
 
 
 class ParserTest(unittest.TestCase):
@@ -91,6 +96,96 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(n.uid, "LH:0000061200")
         self.assertEqual(n.posted_date, "2026-10-01")
         self.assertTrue(apply_filter(n, REGIONS, RULES))
+
+
+class MyHomeAndApplyHomeTest(unittest.TestCase):
+    """마이홈포털 · 청약홈 API 응답 처리 (공식 명세의 필드명 기준으로 만든 예시 응답)."""
+
+    MYHOME_JSON = """{"response": {"header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
+      "body": {"totalCount": "1", "numOfRows": "100", "pageNo": "1", "item": [
+        {"pblancId": "20260901", "houseSn": 1, "sttusNm": "공고중",
+         "pblancNm": "하남교산 A-3블록 통합공공임대주택 입주자 모집공고",
+         "suplyInsttNm": "경기주택도시공사", "houseTyNm": "아파트", "suplyTyNm": "통합공공임대",
+         "rcritPblancDe": "20260915", "beginDe": "20261001", "endDe": "20261010",
+         "url": "https://apply.gh.or.kr/notice/1", "pcUrl": "https://www.myhome.go.kr/x",
+         "hsmpNm": "하남교산 A-3", "brtcNm": "경기도", "signguNm": "하남시",
+         "fullAdres": "경기도 하남시 천현동 산 1"}]}}}"""
+
+    def test_myhome_parse(self):
+        items = parse_response(self.MYHOME_JSON)
+        n = myhome_notice(items[0], "rental")
+        self.assertEqual(n.uid, "MYHOME:20260901")
+        self.assertEqual(n.posted_date, "2026-09-15")
+        self.assertEqual(n.close_date, "2026-10-10")
+        self.assertEqual(n.url, "https://apply.gh.or.kr/notice/1")  # 공급기관 원문 링크 우선
+        self.assertEqual(n.supplier, "경기주택도시공사")
+        self.assertTrue(apply_filter(n, REGIONS, RULES, address_aliases=ADDRS))
+        self.assertIn("공공임대", n.supply_types)
+
+    def test_myhome_single_item_and_errors(self):
+        one = '{"response":{"header":{"resultCode":"00"},"body":{"item":{"pblancId":"1","pblancNm":"x"}}}}'
+        self.assertEqual(len(parse_response(one)), 1)
+        self.assertEqual(parse_response('{"response":{"header":{"resultCode":"03"},"body":{}}}'), [])
+        with self.assertRaises(MyHomeApiError):
+            parse_response('{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnReasonCode":"30"}}}')
+        with self.assertRaises(MyHomeApiError):
+            parse_response("<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>30"
+                           "</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>")
+        xml = ("<response><header><resultCode>00</resultCode></header><body><items>"
+               "<item><pblancId>7</pblancId><pblancNm>t</pblancNm></item></items></body></response>")
+        self.assertEqual(parse_response(xml)[0]["pblancId"], "7")
+
+    def test_applyhome_private_apt_matched_by_address(self):
+        n = applyhome_notice("getAPTLttotPblancDetail", {
+            "HOUSE_MANAGE_NO": "2026000123", "PBLANC_NO": "2026000123",
+            "HOUSE_NM": "힐스테이트 오정 더센트럴", "HOUSE_SECD": "01", "HOUSE_DTL_SECD": "01",
+            "RENT_SECD": "0", "SUBSCRPT_AREA_CODE_NM": "경기",
+            "HSSPLY_ADRES": "경기도 부천시 오정구 대장동 B5블록", "RCRIT_PBLANC_DE": "2026-09-20",
+            "RCEPT_ENDDE": "2026-10-02", "BSNS_MBY_NM": "(주)오정개발",
+            "PBLANC_URL": "https://www.applyhome.or.kr/ai/aia/selectAPTLttotPblancDetail.do?houseManageNo=2026000123",
+        })
+        self.assertEqual(n.category, "민간분양(민영주택)")
+        self.assertFalse(n.public_housing)
+        self.assertFalse(apply_filter(n, REGIONS, RULES))  # 제목만으로는 못 찾음
+        self.assertTrue(apply_filter(n, REGIONS, RULES, address_aliases=ADDRS))
+        self.assertEqual(n.regions, ["부천대장"])
+        self.assertEqual(n.supply_types, ["민간분양"])
+        self.assertEqual(n.match_note, "주소로 지구 추정")
+
+    def test_applyhome_remainder(self):
+        n = applyhome_notice("getRemndrLttotPblancDetail", {
+            "HOUSE_MANAGE_NO": "1", "PBLANC_NO": "2", "HOUSE_NM": "계양 ○○아파트",
+            "HOUSE_SECD": "04", "HSSPLY_ADRES": "인천광역시 계양구 박촌동 1",
+            "RCRIT_PBLANC_DE": "2026-09-21", "SUBSCRPT_RCEPT_ENDDE": "2026-09-25",
+        })
+        self.assertEqual(n.uid, "APPLYHOME:1-2")
+        self.assertEqual(n.close_date, "2026-09-25")
+        self.assertTrue(apply_filter(n, REGIONS, RULES, address_aliases=ADDRS))
+        self.assertEqual(n.supply_types, ["무순위(잔여세대)"])
+
+    def test_cross_source_dedup(self):
+        lh = Notice(uid="LH:1", source="LH", title="t", url="u")
+        myhome_lh = Notice(uid="MYHOME:1", source="마이홈포털", title="t", url="u", supplier="LH")
+        myhome_gh = Notice(uid="MYHOME:2", source="마이홈포털", title="t", url="u", supplier="경기주택도시공사")
+        ah_public = Notice(uid="APPLYHOME:1", source="청약홈", title="t", url="u", public_housing=True)
+        ah_private = Notice(uid="APPLYHOME:2", source="청약홈", title="t", url="u", supplier="(주)민간")
+        items = [(None, x) for x in (lh, myhome_lh, myhome_gh, ah_public, ah_private)]
+
+        kept = [n.uid for _, n in drop_cross_source_duplicates(items, lh_ok=True, myhome_ok=True)]
+        self.assertEqual(kept, ["LH:1", "MYHOME:2", "APPLYHOME:2"])
+        # LH·마이홈 조회가 실패했으면 다른 출처 것이라도 받는다
+        kept = [n.uid for _, n in drop_cross_source_duplicates(items, lh_ok=False, myhome_ok=False)]
+        self.assertEqual(len(kept), 5)
+
+
+class RedactTest(unittest.TestCase):
+    def test_secrets_hidden(self):
+        from lhbot.sources import redact
+        msg = redact("401 for url: https://x/y?serviceKey=ab%2Bc%3D%3D&page=1 "
+                     "https://api.telegram.org/bot123456:AAE-x_yz/sendMessage")
+        self.assertNotIn("ab%2Bc", msg)
+        self.assertNotIn("AAE-x_yz", msg)
+        self.assertIn("serviceKey=***&page=1", msg)
 
 
 class StoreAndMessageTest(unittest.TestCase):

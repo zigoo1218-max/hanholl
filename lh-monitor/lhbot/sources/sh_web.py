@@ -12,8 +12,8 @@ from datetime import date
 from bs4 import BeautifulSoup
 
 from ..models import Notice
-from . import PoliteClient
-from .lh_web import _iso, extract_detail_text
+from . import PoliteClient, to_iso
+from .lh_web import extract_detail_text
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def parse_list(html: str) -> list[Notice]:
         seq = _SEQ.search(a["onclick"]).group(1)
         title = " ".join(a.get_text(" ", strip=True).split())
         tds = tr.find_all("td")
-        posted = next((_iso(td.get_text()) for td in tds if _iso(td.get_text())), "")
+        posted = next((to_iso(td.get_text()) for td in tds if to_iso(td.get_text())), "")
         dept = tds[2].get_text(strip=True) if len(tds) > 2 else ""
         notices.append(Notice(
             uid=f"SH:{seq}", source="SH", title=title,

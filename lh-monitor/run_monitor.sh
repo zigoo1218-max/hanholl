@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LH/SH 공고 모니터 1회 실행 (crontab 등록용). 최초 실행 시 가상환경을 자동으로 만든다.
+# 주택 공고 모니터 1회 실행 (crontab 등록용). 최초 실행 시 가상환경을 자동으로 만든다.
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p data

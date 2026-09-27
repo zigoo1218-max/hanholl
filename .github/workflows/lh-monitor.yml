@@ -1,4 +1,4 @@
-name: LH/SH 공고 모니터링
+name: 주택 공고 모니터링
 
 on:
   schedule:
@@ -40,6 +40,8 @@ jobs:
       TARGET_REGIONS: ${{ vars.TARGET_REGIONS }}
       INCLUDE_RENTAL: ${{ vars.INCLUDE_RENTAL }}
       ENABLE_SH: ${{ vars.ENABLE_SH }}
+      ENABLE_MYHOME: ${{ vars.ENABLE_MYHOME }}
+      ENABLE_APPLYHOME: ${{ vars.ENABLE_APPLYHOME }}
       LOOKBACK_DAYS: ${{ vars.LOOKBACK_DAYS }}
       MODE: ${{ inputs.mode || 'run' }}
     steps:

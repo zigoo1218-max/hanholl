@@ -16,8 +16,8 @@ from typing import Any, Iterable
 
 from ..config import today_kst
 from ..models import Notice
-from . import PoliteClient
-from .lh_web import BASE, _iso, detail_url, extract_detail_text
+from . import PoliteClient, to_iso
+from .lh_web import BASE, detail_url, extract_detail_text
 
 log = logging.getLogger(__name__)
 
@@ -81,16 +81,12 @@ def row_to_notice(row: dict) -> Notice | None:
         source="LH",
         title=title,
         url=url,
-        posted_date=_iso(_pick(row, "PAN_NT_ST_DT", "PAN_DT", "panNtStDt")) or _yyyymmdd(_pick(row, "PAN_DT")),
-        close_date=_iso(_pick(row, "CLSG_DT", "clsgDt")),
+        posted_date=to_iso(_pick(row, "PAN_NT_ST_DT", "PAN_DT", "panNtStDt")),
+        close_date=to_iso(_pick(row, "CLSG_DT", "clsgDt")),
         category=_pick(row, "AIS_TP_CD_NM", "UPP_AIS_TP_NM"),
         area=_pick(row, "CNP_CD_NM", "cnpCdNm"),
         status=_pick(row, "PAN_SS", "panSs"),
     )
-
-
-def _yyyymmdd(v: str) -> str:
-    return f"{v[:4]}-{v[4:6]}-{v[6:8]}" if len(v) == 8 and v.isdigit() else ""
 
 
 class LHApiSource:

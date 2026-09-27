@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import re
 import time
 
 import requests
@@ -18,6 +19,20 @@ USER_AGENT = (
 )
 
 
+_DATE = re.compile(r"(\d{4})[.\-/]?(\d{2})[.\-/]?(\d{2})")
+
+
+def to_iso(text: str) -> str:
+    """'2026.09.14' / '2026-09-14' / '20260914' → '2026-09-14' (못 찾으면 빈 문자열)."""
+    m = _DATE.search(str(text or ""))
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else ""
+
+
+def is_lh_supplier(name: str) -> bool:
+    """공급기관/사업주체 이름이 LH 인지 (LH 공고는 LH 수집기가 이미 받으므로 다른 출처에서 제외)."""
+    return "LH" in (name or "").upper() or "토지주택" in (name or "")
+
+
 def make_session() -> requests.Session:
     """재시도(연결 끊김, 5xx)와 공통 헤더가 설정된 세션."""
     s = requests.Session()
@@ -28,6 +43,21 @@ def make_session() -> requests.Session:
     s.mount("http://", HTTPAdapter(max_retries=retry))
     s.headers.update({"User-Agent": USER_AGENT, "Accept-Language": "ko-KR,ko;q=0.9"})
     return s
+
+
+_SECRET_PARAM = re.compile(r"((?:serviceKey|ServiceKey|api_key|token)=)[^&\s'\"]+")
+
+
+_BOT_TOKEN = re.compile(r"bot\d+:[A-Za-z0-9_-]+")
+
+
+def redact(text: str) -> str:
+    """로그에 비밀값이 찍히지 않도록 URL 의 serviceKey 값과 텔레그램 봇 토큰을 가린다."""
+    return _BOT_TOKEN.sub("bot***", _SECRET_PARAM.sub(r"\1***", text))
+
+
+class FetchError(RuntimeError):
+    """조회 실패 (메시지에서 인증키는 가려져 있음)."""
 
 
 class PoliteClient:
@@ -45,7 +75,10 @@ class PoliteClient:
             time.sleep(self.delay_sec - gap)
         try:
             resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            # 오류 메시지에 요청 URL(인증키 포함)이 들어가므로 키를 가린 메시지로 바꿔서 던진다
+            raise FetchError(redact(str(exc))) from None
         finally:
             self._last = time.monotonic()
-        resp.raise_for_status()
         return resp
