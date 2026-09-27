@@ -1,0 +1,79 @@
+name: LH/SH 공고 모니터링
+
+on:
+  schedule:
+    # 매시 17분 실행 (정각은 GitHub 스케줄 지연이 심함). 2시간 주기는 '17 */2 * * *'
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '실행 모드'
+        type: choice
+        default: run
+        options:
+          - run            # 신규 공고 발송
+          - dry-run        # 발송/저장 없이 로그만
+          - init           # 발송 없이 현재 공고를 발송 완료로 기록
+          - test-telegram  # 텔레그램 연결 테스트
+
+permissions:
+  contents: read
+
+# 동시에 두 번 돌면 같은 공고를 중복 발송할 수 있으므로 직렬 실행
+concurrency:
+  group: lh-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: lh-monitor
+    env:
+      TZ: Asia/Seoul
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
+      # 저장소 Settings > Variables 에 넣으면 덮어씀 (비워두면 코드 기본값)
+      TARGET_REGIONS: ${{ vars.TARGET_REGIONS }}
+      INCLUDE_RENTAL: ${{ vars.INCLUDE_RENTAL }}
+      ENABLE_SH: ${{ vars.ENABLE_SH }}
+      LOOKBACK_DAYS: ${{ vars.LOOKBACK_DAYS }}
+      MODE: ${{ inputs.mode || 'run' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: lh-monitor/requirements.txt
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+
+      # 발송 이력 DB(data/state.db)를 실행 사이에 유지하기 위해 Actions 캐시 사용
+      - name: 발송 이력 복원
+        uses: actions/cache/restore@v4
+        with:
+          path: lh-monitor/data
+          key: lh-monitor-state-${{ github.run_id }}
+          restore-keys: lh-monitor-state-
+
+      - name: 모니터링 실행
+        run: |
+          case "$MODE" in
+            run)           python monitor.py ;;
+            dry-run)       python monitor.py --dry-run ;;
+            init)          python monitor.py --init ;;
+            test-telegram) python monitor.py --test-telegram ;;
+          esac
+
+      - name: 발송 이력 저장
+        if: always() && hashFiles('lh-monitor/data/state.db') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: lh-monitor/data
+          key: lh-monitor-state-${{ github.run_id }}-${{ github.run_attempt }}

@@ -1,0 +1,11 @@
+# 로컬 비밀값 (루트 .gitignore 의 .env* 규칙에서 예시 파일만 예외 처리)
+.env
+!.env.example
+
+# 발송 이력 DB / 로그
+data/
+*.log
+
+__pycache__/
+*.pyc
+.venv/
