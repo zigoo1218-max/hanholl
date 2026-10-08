@@ -103,13 +103,29 @@
 - 배포 확인: https://zigoo1218-max.github.io/hanholl/ 응답 200, 브라우저로 입장해 새 전시관(어두운 천장·트랙 조명·황동 액자·반사 바닥·다크 HUD) 렌더링 확인. 콘솔 404 는 3조·8조 미디어 누락(기존과 동일)
 - 로컬 작업 브랜치 삭제, main 최신화. 원격 브랜치 `origin/feat/gallery-visual-redesign` 는 남아 있음(GitHub 에서 삭제 가능)
 
+### 2026-10-08 (2차) — 1조 썸네일 · A실/B실
+
+- 1조 썸네일이 검게 나온 원인: `scripts/generate-thumbnails.js` 가 모든 영상에서 1.5초 지점을 뽑았고 1조 영상은 처음 3초가 어두운 페이드인(밝기 17/255). 빌드마다 덮어쓰므로 파일 교체만으로는 재발. 스크립트를 "영상 길이의 15·25·35·50·65% 지점 밝기를 재서 정상 노출(45~215) 첫 장면 선택"으로 변경, 하위 폴더(`room-a/teamN`)까지 탐색. 7개 팀 재생성 후 한 장 모음으로 육안 확인
+- 전시실 분리: 입구 → A실(2학기, 빈 액자 10개 "작품 준비 중") → 칸막이 문 → B실(기존 1~8조 9작품) → 타이틀 벽. 좌표 계산은 `src/components/gallery/layout.ts` 한 곳, 방 설정은 `src/data/rooms.ts`, 작품의 `room` 필드로 배치
+- 상단 A실/B실 버튼으로 순간이동, 현재 방 표시. 칸막이는 문(폭 4m)으로만 통과
+- 검증: 배치 계산을 실제 코드로 실행(A실 −26.2m까지, B실 −56.7m까지, A실 작품 12개면 자동 확장), 브라우저에서 B실 순간이동 → 벽 쪽 후진 차단 → 문 통과 시 A실 전환 확인, 목록 화면 방별 묶음 확인, tsc·lint(기존 경고 2건만)·build
+- 성능: 방이 둘이라 천장 광원 수가 늘어 실광원은 한 줄 걸러 배치(조명 원반은 모든 줄 유지)
+- 가정: 기존 작품을 "1학기 작품"으로 표기함(오너가 "지금 전시공간 = B실"로만 지정)
+
+### 2026-10-08 (3차) — 입장 로딩 표시
+
+- 문제: 기존 로딩 표시는 3D 코드 파일을 받는 순간에만 나오고, 그 뒤 액자 이미지·셰이더 준비 동안은 검은 화면에 상단 바만 떠 있어 멈춘 것처럼 보임
+- 해결: `src/components/gallery/loading-overlay.tsx` 전체 화면 로딩 표지(이미지 진행률 %, "작품을 벽에 거는 중 → 조명을 켜는 중" 단계). 씬 안 `LoadingReporter` 가 three 기본 로딩 관리자(drei `useProgress`)로 진행률을 보내고, 로딩이 끝난 뒤 4프레임이 그려지면 준비 완료 신호. 최대 20초 뒤엔 표지를 걷어 관람객이 갇히지 않게 함. 목록→3D 복귀 시에도 다시 동작
+- 랜딩 화면에 1.2초 머물면 3D 코드를 미리 받아 입장 대기 단축(영상은 미리 받지 않음)
+- 검증: 브라우저에서 입장 0.3초에 표지 표시 → 100% → 준비 완료 후 페이드아웃, 목록→3D 복귀 동일, 랜딩 1.9초 시점에 3D 코드 미리 받음 확인. tsc·lint(기존 경고 2건)·build
+
 ## Handoff (다음 에이전트용, 2026-10-08)
 
 - 정본 저장소: GitHub `zigoo1218-max/hanholl` (이 클론 `~/Projects/hanholl`). `~/Projects/school-showcase-gallery` 는 5월 31일 구버전 복사본이라 쓰지 않는다.
 - 로컬 실행: `NEXT_PUBLIC_BASE_PATH=/hanholl npx next dev --webpack -p 3003` 후 `http://localhost:3003/hanholl`. 빌드 검증은 `NEXT_PUBLIC_BASE_PATH=/hanholl npx next build` (npm run build 는 ffmpeg 썸네일 재생성이 먼저 돌아 썸네일 파일이 바뀔 수 있음).
-- 린트는 원본부터 실패 상태(`scripts/generate-thumbnails.js` require 구문 4건, `video-utils.ts`·`artwork-list-view.tsx` 경고) — 신규 오류만 본다.
+- 린트: 2026-10-08 2차부터 오류 0건, 기존 경고 2건(`video-utils.ts` 미사용 변수, `artwork-list-view.tsx` img)만 남음.
 - GitHub 인증: 이 Mac 의 gh 에 `zigoo1218-max` 와 `indexzigu` 두 계정이 있고 활성은 zigoo1218-max. 저장소 로컬 git 작성자는 zigoo1218-max 비공개 주소로 설정돼 있음. 푸시는 `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push …` 로 gh 토큰을 쓴다(키체인에 indexzigu 토큰이 남아 있어 그냥 push 하면 403).
-- 미결(오너 결정): ① 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤 확정 — `dev_docs/TASKS.md` 추가 태스크 참조 ② 프로젝터 현장 가독성 확인 ③ 1조 검은 썸네일 교체(`public/media/team1/thumbnail.jpg`, ffmpeg 추출 시각 조정 또는 수동 이미지), 3조·8조 영상·썸네일 파일 등록.
+- 미결(오너 결정): ① 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤 확정 — `dev_docs/TASKS.md` 추가 태스크 참조 ② 프로젝터 현장 가독성 확인 ③ 3조·8조 영상·썸네일 파일 등록 ④ A실이 입구 쪽(첫 방)이라 2학기 작품 전까지는 관람객이 빈 방부터 보게 됨 — 순서 유지 여부 오너 확인. (1조 검은 썸네일은 2026-10-08 2차에서 해결 ⛔ SUPERSEDED)
 - 필독: `src/components/gallery/*`(씬 구성 요소) · `src/components/gallery-scene.tsx`(홀 조립·품질 모드) · `src/data/accents.ts`(강조색) · 이 문서 2026-10-08 검증 로그.
 - PR 게이트 리뷰(표준 축·스펙 축) 반영: 캡션 플레이트가 다음 액자와 0.1m 겹치던 것 교정, 학생 이름 2줄, 플레이트 클릭 가능, 3D 화면용 스크린리더 작품 내비 추가, 작품 12개 초과 시 액자별 스포트라이트 생략, 강조색 상수 단일 모듈화(`src/data/accents.ts`), 캔버스 실패 경고, 재생 중 키보드 포커스 시 컨트롤 표시, 미사용 코드·CSS 제거
 - 리뷰에서 오너 결정으로 남긴 것: 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤의 불일치, 프로젝터에서 어두운 톤 가독성, 캡션 플레이트가 보행 거리에서 작게 보임(상세는 대화상자에서 확인)

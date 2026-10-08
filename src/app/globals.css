@@ -187,3 +187,63 @@ a:focus-visible {
     opacity: 1 !important;
   }
 }
+
+/* Room switcher (A실 / B실) under the HUD header. */
+.room-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  color: var(--hud-muted);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.room-tab:hover {
+  background: rgb(255 255 255 / 8%);
+  color: var(--hud-ink);
+}
+
+.room-tab-active {
+  background: rgb(244 239 230 / 92%);
+  color: #0b1119;
+}
+
+.room-tab-active:hover {
+  background: #ffffff;
+  color: #0b1119;
+}
+
+.room-tab-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--room-accent, #9484c4);
+}
+
+.room-tab-sub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* Loading cover spinner; static ring for visitors who prefer reduced motion. */
+.loading-ring {
+  animation: loading-spin 1s linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-ring {
+    animation: none;
+  }
+}
