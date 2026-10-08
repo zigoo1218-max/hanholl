@@ -99,6 +99,18 @@
 - 반영 후 `npx tsc --noEmit`·린트(신규 파일 기준)·`next build` 재통과, 개발 서버에서 Shift+W 후 키를 떼면 정지하는지 확인
 - 오너 지시로 커밋·푸시함. 브랜치 `feat/gallery-visual-redesign` → origin. 작성자는 zigoo1218-max 비공개 주소로 수정
 - PR 생성: https://github.com/zigoo1218-max/hanholl/pull/2 (오너가 게이트 우회 플래그로 직접 생성). main 머지 시 GitHub Actions 가 Pages 로 자동 배포. 저장소 CI 는 main push 에만 걸려 있어 PR 자체에는 체크가 없음
+- 2026-10-08 18:12 오너가 PR #2 머지(`gh pr merge --merge`, 머지 커밋 7da0386). GitHub Actions `Deploy to GitHub Pages` 실행 37754818336 성공
+- 배포 확인: https://zigoo1218-max.github.io/hanholl/ 응답 200, 브라우저로 입장해 새 전시관(어두운 천장·트랙 조명·황동 액자·반사 바닥·다크 HUD) 렌더링 확인. 콘솔 404 는 3조·8조 미디어 누락(기존과 동일)
+- 로컬 작업 브랜치 삭제, main 최신화. 원격 브랜치 `origin/feat/gallery-visual-redesign` 는 남아 있음(GitHub 에서 삭제 가능)
+
+## Handoff (다음 에이전트용, 2026-10-08)
+
+- 정본 저장소: GitHub `zigoo1218-max/hanholl` (이 클론 `~/Projects/hanholl`). `~/Projects/school-showcase-gallery` 는 5월 31일 구버전 복사본이라 쓰지 않는다.
+- 로컬 실행: `NEXT_PUBLIC_BASE_PATH=/hanholl npx next dev --webpack -p 3003` 후 `http://localhost:3003/hanholl`. 빌드 검증은 `NEXT_PUBLIC_BASE_PATH=/hanholl npx next build` (npm run build 는 ffmpeg 썸네일 재생성이 먼저 돌아 썸네일 파일이 바뀔 수 있음).
+- 린트는 원본부터 실패 상태(`scripts/generate-thumbnails.js` require 구문 4건, `video-utils.ts`·`artwork-list-view.tsx` 경고) — 신규 오류만 본다.
+- GitHub 인증: 이 Mac 의 gh 에 `zigoo1218-max` 와 `indexzigu` 두 계정이 있고 활성은 zigoo1218-max. 저장소 로컬 git 작성자는 zigoo1218-max 비공개 주소로 설정돼 있음. 푸시는 `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push …` 로 gh 토큰을 쓴다(키체인에 indexzigu 토큰이 남아 있어 그냥 push 하면 403).
+- 미결(오너 결정): ① 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤 확정 — `dev_docs/TASKS.md` 추가 태스크 참조 ② 프로젝터 현장 가독성 확인 ③ 1조 검은 썸네일 교체(`public/media/team1/thumbnail.jpg`, ffmpeg 추출 시각 조정 또는 수동 이미지), 3조·8조 영상·썸네일 파일 등록.
+- 필독: `src/components/gallery/*`(씬 구성 요소) · `src/components/gallery-scene.tsx`(홀 조립·품질 모드) · `src/data/accents.ts`(강조색) · 이 문서 2026-10-08 검증 로그.
 - PR 게이트 리뷰(표준 축·스펙 축) 반영: 캡션 플레이트가 다음 액자와 0.1m 겹치던 것 교정, 학생 이름 2줄, 플레이트 클릭 가능, 3D 화면용 스크린리더 작품 내비 추가, 작품 12개 초과 시 액자별 스포트라이트 생략, 강조색 상수 단일 모듈화(`src/data/accents.ts`), 캔버스 실패 경고, 재생 중 키보드 포커스 시 컨트롤 표시, 미사용 코드·CSS 제거
 - 리뷰에서 오너 결정으로 남긴 것: 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤의 불일치, 프로젝터에서 어두운 톤 가독성, 캡션 플레이트가 보행 거리에서 작게 보임(상세는 대화상자에서 확인)
 - 발견 사항(코드 외): 1조 썸네일(`public/media/team1/thumbnail.jpg`)은 ffmpeg가 1.5초 지점에서 뽑은 검은 프레임이라 액자가 검게 보임. 3조·8조는 영상·썸네일 파일이 저장소에 없어 자리표시 액자로 표시됨. 데이터의 `orientation` 값이 실제 영상과 어긋난 팀(1조·2조·5A·5B·6조)이 있으나 액자는 실측 비율을 쓰므로 화면 영향 없음
