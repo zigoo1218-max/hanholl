@@ -1,3 +1,5 @@
+import type { RoomId } from "@/data/rooms";
+
 /**
  * Metadata for a single student team video shown in both 3D and 2D views.
  */
@@ -12,4 +14,6 @@ export type ShowcaseVideo = {
   durationSeconds?: number;
   accent: "pine" | "hydrangea" | "navy";
   orientation?: "landscape" | "portrait";
+  /** Exhibition room the work hangs in (see src/data/rooms.ts). */
+  room: RoomId;
 };

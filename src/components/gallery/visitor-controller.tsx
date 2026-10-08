@@ -3,6 +3,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, type RefObject } from "react";
 import * as THREE from "three";
+import { DOOR_WIDTH, PARTITION_THICKNESS, roomIndexAt, type HallLayout } from "@/components/gallery/layout";
 import type { MoveInput } from "@/components/gallery-controls";
 
 const EYE_HEIGHT = 1.72;
@@ -14,6 +15,10 @@ const LOOK_SMOOTHING = 14;
 const HALL_HALF_WIDTH = 4.4;
 const ENTRANCE_LIMIT_Z = 1.8;
 const END_WALL_MARGIN = 5;
+/** Keep the camera this far from wall faces and door posts so it never clips into them. */
+const BODY_RADIUS = 0.35;
+const DOOR_PASS_HALF_WIDTH = DOOR_WIDTH / 2 - BODY_RADIUS;
+const PARTITION_BAND = PARTITION_THICKNESS / 2 + BODY_RADIUS;
 const LANDSCAPE_FOV = 62;
 /** Scratch vectors reused every frame to avoid per-frame allocations. */
 const scratchForward = new THREE.Vector3();
@@ -22,9 +27,17 @@ const PORTRAIT_FOV = 80;
 const MAX_FRAME_DELTA = 0.1;
 
 type VisitorControllerProps = {
-  hallLength: number;
+  layout: HallLayout;
   moveInput: RefObject<MoveInput>;
+  /** Returns a pending room-jump index once, then null until the next request. */
+  takeJumpRequest: () => number | null;
+  onRoomChange: (roomIndex: number) => void;
 };
+
+/** True when standing at (x, z) would put the visitor inside a partition wall (outside its doorway). */
+function hitsPartition(partitions: number[], x: number, z: number) {
+  return Math.abs(x) > DOOR_PASS_HALF_WIDTH && partitions.some((partitionZ) => Math.abs(z - partitionZ) < PARTITION_BAND);
+}
 
 /** Keys are stored lower-cased so Shift or CapsLock cannot leave a key "stuck" between keydown and keyup. */
 const FORWARD_KEYS = ["w", "ㅈ", "keyw", "arrowup"];
@@ -41,7 +54,7 @@ function hasAny(keys: Set<string>, candidates: string[]) {
  * the visitor; dragging with a mouse or a finger turns the view. Look input is
  * smoothed so projector audiences do not see jittery camera motion.
  */
-export function VisitorController({ hallLength, moveInput }: VisitorControllerProps) {
+export function VisitorController({ layout, moveInput, takeJumpRequest, onRoomChange }: VisitorControllerProps) {
   const gl = useThree((state) => state.gl);
   const keys = useRef(new Set<string>());
   const activePointer = useRef<number | null>(null);
@@ -50,6 +63,7 @@ export function VisitorController({ hallLength, moveInput }: VisitorControllerPr
   const targetPitch = useRef(0);
   const yaw = useRef(0);
   const pitch = useRef(0);
+  const reportedRoom = useRef<number | null>(null);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -121,6 +135,20 @@ export function VisitorController({ hallLength, moveInput }: VisitorControllerPr
       }
     }
 
+    // Room jump from the HUD: land just inside the room, facing down the hall.
+    const requestedRoom = takeJumpRequest();
+    if (requestedRoom !== null) {
+      const target = layout.rooms[requestedRoom];
+      if (target) {
+        camera.position.set(0, EYE_HEIGHT, target.spawnZ);
+        const fullTurns = Math.round(yaw.current / (Math.PI * 2)) * Math.PI * 2;
+        targetYaw.current = fullTurns;
+        yaw.current = fullTurns;
+        targetPitch.current = 0;
+        pitch.current = 0;
+      }
+    }
+
     const smoothing = 1 - Math.exp(-LOOK_SMOOTHING * delta);
     yaw.current += (targetYaw.current - yaw.current) * smoothing;
     pitch.current += (targetPitch.current - pitch.current) * smoothing;
@@ -143,11 +171,19 @@ export function VisitorController({ hallLength, moveInput }: VisitorControllerPr
     const movement = forward.multiplyScalar(forwardAmount).add(right.multiplyScalar(rightAmount));
     if (movement.lengthSq() > 0) {
       movement.normalize().multiplyScalar(delta * WALK_SPEED);
-      camera.position.add(movement);
-      camera.position.x = THREE.MathUtils.clamp(camera.position.x, -HALL_HALF_WIDTH, HALL_HALF_WIDTH);
-      camera.position.z = THREE.MathUtils.clamp(camera.position.z, -hallLength + END_WALL_MARGIN, ENTRANCE_LIMIT_Z);
+      const nextX = THREE.MathUtils.clamp(camera.position.x + movement.x, -HALL_HALF_WIDTH, HALL_HALF_WIDTH);
+      const nextZ = THREE.MathUtils.clamp(camera.position.z + movement.z, layout.endZ + END_WALL_MARGIN, ENTRANCE_LIMIT_Z);
+      // Resolve each axis separately so the visitor slides along a partition instead of sticking to it.
+      if (!hitsPartition(layout.partitions, nextX, camera.position.z)) camera.position.x = nextX;
+      if (!hitsPartition(layout.partitions, camera.position.x, nextZ)) camera.position.z = nextZ;
     }
     camera.position.y = EYE_HEIGHT;
+
+    const currentRoom = roomIndexAt(layout, camera.position.z);
+    if (currentRoom !== reportedRoom.current) {
+      reportedRoom.current = currentRoom;
+      onRoomChange(currentRoom);
+    }
   });
 
   return null;

@@ -2,17 +2,22 @@
 
 import dynamic from "next/dynamic";
 import { Clapperboard, Grid3X3, Hand, Home, MousePointer2, Move, RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtworkDialog } from "@/components/artwork-dialog";
 import { ArtworkListView } from "@/components/artwork-list-view";
 import { EntranceScreen } from "@/components/entrance-screen";
+import { computeHallLayout } from "@/components/gallery/layout";
 import { SceneErrorBoundary } from "@/components/gallery/scene-error-boundary";
 import { createMoveInput, TouchPad } from "@/components/gallery-controls";
 import { showcaseVideos } from "@/data/showcase-videos";
 import type { ShowcaseVideo } from "@/types/showcase";
 
 const IDLE_RESET_MS = 60000;
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+/** info.json sits next to the video, so B실 (media/team1) and A실 (media/room-a/team1) works both resolve. */
+function infoUrlFor(video: ShowcaseVideo) {
+  return video.videoUrl.replace(/video\.[^/]+$/, "info.json");
+}
 
 const GalleryScene = dynamic(() => import("@/components/gallery-scene").then((module) => module.GalleryScene), {
   ssr: false,
@@ -51,6 +56,15 @@ export function ExhibitionApp() {
   const [artworks, setArtworks] = useState<ShowcaseVideo[]>(showcaseVideos);
   const [isTouchDevice] = useState(detectTouchDevice);
   const moveInput = useRef(createMoveInput());
+  const jumpRequest = useRef<number | null>(null);
+  const [currentRoom, setCurrentRoom] = useState(0);
+  const layout = useMemo(() => computeHallLayout(artworks), [artworks]);
+  const handleRoomChange = useCallback((roomIndex: number) => setCurrentRoom(roomIndex), []);
+  const takeJumpRequest = useCallback(() => {
+    const requested = jumpRequest.current;
+    jumpRequest.current = null;
+    return requested;
+  }, []);
 
   const activeArtwork = selectedArtwork ? (artworks.find((item) => item.id === selectedArtwork.id) ?? selectedArtwork) : null;
 
@@ -59,6 +73,7 @@ export function ExhibitionApp() {
     setViewMode("3d");
     setSelectedArtwork(null);
     setIsVideoPlaying(false);
+    setCurrentRoom(0);
   };
 
   const closeDialog = () => {
@@ -89,9 +104,8 @@ export function ExhibitionApp() {
       const timestamp = Date.now();
       const updated = await Promise.all(
         showcaseVideos.map(async (video) => {
-          const folderName = video.id.replace("team-", "team").replace("0", "");
           try {
-            const response = await fetch(`${BASE_PATH}/media/${folderName}/info.json?v=${timestamp}`);
+            const response = await fetch(`${infoUrlFor(video)}?v=${timestamp}`);
             if (response.ok) {
               const info = await response.json();
               return {
@@ -136,7 +150,7 @@ export function ExhibitionApp() {
   return (
     <main className="relative h-dvh overflow-hidden bg-[#0f1114]">
       <SceneErrorBoundary onError={() => setWebglAvailable(false)}>
-        <GalleryScene artworks={artworks} isVideoPlaying={isVideoPlaying} moveInput={moveInput} onSelect={setSelectedArtwork} />
+        <GalleryScene isVideoPlaying={isVideoPlaying} layout={layout} takeJumpRequest={takeJumpRequest} moveInput={moveInput} onRoomChange={handleRoomChange} onSelect={setSelectedArtwork} />
       </SceneErrorBoundary>
 
       {/* Vignette keeps the HUD legible against bright walls without touching the 3D scene. */}
@@ -165,6 +179,31 @@ export function ExhibitionApp() {
         </div>
       </header>
 
+      {/* Room switcher: shows where the visitor is and jumps straight to the other room. */}
+      <nav aria-label="전시실 바로가기" className="hud-panel absolute left-1/2 top-[4.25rem] z-20 flex w-max -translate-x-1/2 items-center gap-1 rounded-full p-1 sm:top-[5.25rem]">
+        {layout.rooms.map((roomLayout, index) => {
+          const isCurrent = index === currentRoom;
+          const workCount = roomLayout.slots.filter((slot) => slot.artwork).length;
+          return (
+            <button
+              key={roomLayout.room.id}
+              aria-current={isCurrent ? "location" : undefined}
+              aria-label={`${roomLayout.room.name}로 이동 (${roomLayout.room.subtitle}, 작품 ${workCount}개)`}
+              className={`room-tab ${isCurrent ? "room-tab-active" : ""}`}
+              style={{ "--room-accent": roomLayout.room.accent } as React.CSSProperties}
+              type="button"
+              onClick={() => {
+                jumpRequest.current = index;
+              }}
+            >
+              <span className="room-tab-dot" aria-hidden="true" />
+              <span className="font-extrabold">{roomLayout.room.name}</span>
+              <span className="room-tab-sub">{roomLayout.room.subtitle}</span>
+            </button>
+          );
+        })}
+      </nav>
+
       <aside className={`hud-panel absolute bottom-3 left-3 z-20 rounded-2xl px-3.5 py-2.5 sm:bottom-6 sm:left-6 sm:px-4 sm:py-3 ${isTouchDevice ? "max-w-[calc(100vw-13.5rem)]" : "max-w-[min(92vw,30rem)]"}`}>
         {isTouchDevice ? (
           <div className="flex flex-col gap-1.5">
@@ -183,15 +222,26 @@ export function ExhibitionApp() {
 
       {/* Keyboard and screen-reader path to each artwork; the 3D canvas itself is not focusable. */}
       <nav aria-label="작품 바로가기" className="sr-only">
-        <ul>
-          {artworks.map((artwork) => (
-            <li key={artwork.id}>
-              <button type="button" onClick={() => setSelectedArtwork(artwork)}>
-                {artwork.teamLabel} {artwork.title} {artwork.studentNames.join(" ")} 상세 보기
-              </button>
-            </li>
-          ))}
-        </ul>
+        {layout.rooms.map((roomLayout) => {
+          const works = roomLayout.slots.flatMap((slot) => (slot.artwork ? [slot.artwork] : []));
+          return (
+            <section key={roomLayout.room.id} aria-label={`${roomLayout.room.name} ${roomLayout.room.subtitle}`}>
+              <p>
+                {roomLayout.room.name} {roomLayout.room.subtitle}
+                {works.length === 0 ? " — 작품 준비 중" : ""}
+              </p>
+              <ul>
+                {works.map((artwork) => (
+                  <li key={artwork.id}>
+                    <button type="button" onClick={() => setSelectedArtwork(artwork)}>
+                      {artwork.teamLabel} {artwork.title} {artwork.studentNames.join(" ")} 상세 보기
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </nav>
 
       {isTouchDevice && (

@@ -47,64 +47,60 @@ npm run lint
 npm run build
 ```
 
-## 3. 작품 정보 교체
+## 3. 전시실 구성 (A실 · B실)
 
-작품 메타데이터는 아래 파일에서 관리한다.
+전시관은 한 건물 안에 두 방이 이어진 구조다. 입구에서 들어오면 **A실(2학기 작품)**, 안쪽 문을 지나면 **B실(1학기 작품)** 이다. 상단의 `A실` / `B실` 버튼을 누르면 해당 방 입구로 바로 이동한다.
+
+- 방 이름·부제·색·빈 액자 개수는 `src/data/rooms.ts` 에서 바꾼다.
+- A실은 작품이 없어도 빈 액자 10개에 "작품 준비 중"을 표시한다(`reservedSlots`). 작품을 올리면 앞자리부터 실제 작품으로 바뀌고, 10개를 넘으면 방이 자동으로 길어진다.
+
+## 4. 작품 추가·교체
+
+작품 한 개 = 미디어 폴더 하나 + `src/data/showcase-videos.ts` 항목 하나.
+
+| 전시실 | 미디어 폴더 | 데이터의 `room` |
+|---|---|---|
+| A실 (2학기) | `public/media/room-a/team1/`, `room-a/team2/` … | `"A"` |
+| B실 (1학기) | `public/media/team1/`, `team2/` … | `"B"` |
+
+폴더 안에는 아래 파일을 둔다.
 
 ```text
-src/data/showcase-videos.ts
+video.mp4     작품 영상 (mp4 권장)
+info.json     제목·소개·학생 이름 (선택, 있으면 데이터 값을 덮어씀)
+thumbnail.jpg 자동 생성됨 — 직접 넣지 않아도 된다
 ```
 
-샘플 데이터를 실제 값으로 교체한다.
+`info.json` 예시:
 
-```ts
+```json
 {
-  id: "team-01",
-  teamLabel: "1조",
-  studentNames: ["대표 학생 이름팀"],
-  title: "[가제] 작품 소재",
-  caption: "촬영 중인 기획안 기반 소개 문구",
-  thumbnailUrl: "/media/thumbnails/team-01.jpg",
-  videoUrl: "/media/videos/team-01.mp4",
-  accent: "pine",
+  "title": "작품 제목",
+  "caption": "작품 소개 한두 문장",
+  "studentNames": ["홍길동", "김철수"]
 }
 ```
 
-지원하는 강조색:
+A실 작품 데이터 예시 (`src/data/showcase-videos.ts` 배열에 추가):
 
-- `pine`: 교목 소나무를 반영한 녹색
-- `hydrangea`: 교화 수국을 반영한 보라색
-- `navy`: 공공기관형 네이비
-
-작품을 추가할 때 배열 항목만 추가하면 3D 전시관과 2D 작품 목록에 함께 표시된다. 최대 20개까지 같은 구조를 유지한다.
-
-## 4. 영상 및 썸네일 교체
-
-작품 영상:
-
-```text
-public/media/videos/team-01.mp4
-public/media/videos/team-02.mp4
-public/media/videos/team-05a.mp4
-public/media/videos/team-05b.mp4
-...
+```ts
+{
+  id: "a-team-01",
+  teamLabel: "1조",
+  studentNames: ["홍길동"],
+  title: "작품 제목",
+  caption: "작품 소개",
+  thumbnailUrl: `${bp}/media/room-a/team1/thumbnail.jpg`,
+  videoUrl: `${bp}/media/room-a/team1/video.mp4`,
+  accent: "hydrangea",
+  room: "A",
+}
 ```
 
-작품 썸네일:
-
-```text
-public/media/thumbnails/team-01.jpg
-public/media/thumbnails/team-02.jpg
-...
-```
-
-실제 썸네일이 준비되지 않았다면 아래 기본 이미지를 계속 사용할 수 있다.
-
-```text
-public/media/thumbnails/default-artwork.svg
-```
-
-영상은 작품 상세 화면에서 관람객이 재생 버튼을 누르기 전까지 로드하지 않는다.
+- `id` 는 전체에서 겹치지 않게 한다(A실은 `a-` 로 시작 권장).
+- 강조색 `accent`: `pine`(교목 소나무 녹색) · `hydrangea`(교화 수국 보라) · `navy`(네이비).
+- 썸네일은 `npm run dev` / `npm run build` / `npm run start` 때 영상에서 자동으로 뽑는다. 영상 앞부분이 어두운 페이드인이어도 밝기를 재서 정상 노출 장면을 고른다.
+- 영상은 관람객이 재생 버튼을 누르기 전까지 로드하지 않는다.
 
 ## 5. 학교 홍보영상 교체
 

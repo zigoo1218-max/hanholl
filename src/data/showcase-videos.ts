@@ -3,6 +3,9 @@ import type { ShowcaseVideo } from "@/types/showcase";
 const bp = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 /**
+ * B실 (1학기) works live in public/media/teamN/. 2학기 works for A실 go in
+ * public/media/room-a/teamN/ with `room: "A"` — see README §3.
+ *
  * These working titles and captions are based on the teams' filming plans.
  * Replace them with final titles, full student lists, thumbnails, and videos
  * before the event. Adding items automatically extends both gallery views.
@@ -19,6 +22,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team1/video.mp4`,
     accent: "pine",
     orientation: "portrait",
+    room: "B",
   },
   {
     id: "team-02",
@@ -31,6 +35,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team2/video.mp4`,
     accent: "hydrangea",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-03",
@@ -43,6 +48,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team3/video.mp4`,
     accent: "navy",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-04",
@@ -55,6 +61,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team4/video.mp4`,
     accent: "pine",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-05a",
@@ -67,6 +74,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team5a/video.mp4`,
     accent: "hydrangea",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-05b",
@@ -79,6 +87,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team5b/video.mp4`,
     accent: "navy",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-06",
@@ -91,6 +100,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team6/video.mp4`,
     accent: "pine",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-07",
@@ -103,6 +113,7 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team7/video.mp4`,
     accent: "hydrangea",
     orientation: "landscape",
+    room: "B",
   },
   {
     id: "team-08",
@@ -114,5 +125,6 @@ export const showcaseVideos: ShowcaseVideo[] = [
     videoUrl: `${bp}/media/team8/video.mp4`,
     accent: "navy",
     orientation: "landscape",
+    room: "B",
   },
 ];

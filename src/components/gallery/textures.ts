@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { ACCENT_COLORS, ACCENT_LABELS } from "@/data/accents";
+import type { Room } from "@/data/rooms";
 import type { ShowcaseVideo } from "@/types/showcase";
 
 /**
@@ -368,3 +369,78 @@ export function createGlassDoorTexture(): CanvasTextureResult {
   context.fillText("EXIT", 256, 35);
   return toTexture(canvas);
 }
+
+/** Image for an empty frame held for a future work. */
+export function createReservedTexture(room: Room): CanvasTextureResult {
+  const made = createCanvas(1024, 576);
+  if (!made) return null;
+  const { canvas, context } = made;
+  const gradient = context.createLinearGradient(0, 0, 1024, 576);
+  gradient.addColorStop(0, "#1a1d24");
+  gradient.addColorStop(1, "#0d0f13");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 1024, 576);
+
+  context.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  context.lineWidth = 2;
+  context.setLineDash([10, 12]);
+  context.strokeRect(70, 60, 884, 456);
+  context.setLineDash([]);
+
+  context.textAlign = "center";
+  context.fillStyle = room.accent;
+  context.font = `800 30px ${FONT_STACK}`;
+  context.fillText(`${room.name} · ${room.subtitle}`, 512, 240);
+  context.fillStyle = "rgba(244, 239, 230, 0.86)";
+  context.font = `700 56px ${FONT_STACK}`;
+  context.fillText("작품 준비 중", 512, 318);
+  context.fillStyle = "rgba(244, 239, 230, 0.45)";
+  context.font = `500 24px ${FONT_STACK}`;
+  context.fillText("곧 이 자리에 학생 영상이 전시됩니다", 512, 372);
+  return toTexture(canvas);
+}
+
+/** Caption plate for an empty frame. */
+export function createReservedPlateTexture(room: Room, slotNumber: number): CanvasTextureResult {
+  const made = createCanvas(640, 320);
+  if (!made) return null;
+  const { canvas, context } = made;
+  context.fillStyle = "#f2eee6";
+  context.fillRect(0, 0, 640, 320);
+  context.fillStyle = room.accent;
+  context.fillRect(0, 0, 14, 320);
+  context.textAlign = "left";
+  context.fillStyle = room.accent;
+  context.font = `800 26px ${FONT_STACK}`;
+  context.fillText(`${room.name} · ${String(slotNumber).padStart(2, "0")}`, 48, 76);
+  context.fillStyle = "#3b4650";
+  context.font = `700 38px ${FONT_STACK}`;
+  context.fillText("작품 준비 중", 48, 150);
+  context.fillStyle = "#7a858e";
+  context.font = `500 22px ${FONT_STACK}`;
+  context.fillText(room.subtitle, 48, 200);
+  return toTexture(canvas);
+}
+
+/**
+ * Sign above a doorway. `heading` says where the visitor is going, e.g.
+ * "B실 · 1학기 작품 →" on the A실 side.
+ */
+export function createRoomSignTexture(room: Room, hint: string): CanvasTextureResult {
+  const made = createCanvas(1024, 256);
+  if (!made) return null;
+  const { canvas, context } = made;
+  context.fillStyle = "#101318";
+  context.fillRect(0, 0, 1024, 256);
+  context.fillStyle = room.accent;
+  context.fillRect(0, 244, 1024, 12);
+  context.textAlign = "center";
+  context.fillStyle = "#f4efe6";
+  context.font = `800 92px ${FONT_STACK}`;
+  context.fillText(room.name, 512, 128);
+  context.fillStyle = "rgba(244, 239, 230, 0.7)";
+  context.font = `600 34px ${FONT_STACK}`;
+  context.fillText(`${room.subtitle} · ${hint}`, 512, 192);
+  return toTexture(canvas);
+}
+
