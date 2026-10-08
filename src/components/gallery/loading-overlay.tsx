@@ -49,7 +49,8 @@ export function LoadingOverlay({ isReady, progress }: LoadingOverlayProps) {
         </div>
         <p className="mt-3 flex w-full justify-between text-xs text-white/60">
           <span>{message}</span>
-          <span className="tabular-nums">{percent}%</span>
+          {/* Hidden from screen readers so every percent step is not announced; the stage message is enough. */}
+          <span aria-hidden="true" className="tabular-nums">{percent}%</span>
         </p>
       </div>
     </div>

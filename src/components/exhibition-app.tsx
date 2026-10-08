@@ -65,10 +65,17 @@ export function ExhibitionApp() {
   const handleRoomChange = useCallback((roomIndex: number) => setCurrentRoom(roomIndex), []);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [sceneProgress, setSceneProgress] = useState(0);
+  // Set by the first progress report, i.e. once the 3D code has downloaded and the scene is mounted.
+  const [hasSceneStarted, setHasSceneStarted] = useState(false);
   const handleSceneReady = useCallback(() => setIsSceneReady(true), []);
+  const handleLoadProgress = useCallback((percent: number) => {
+    setSceneProgress(percent);
+    setHasSceneStarted(true);
+  }, []);
   const resetSceneLoading = () => {
     setIsSceneReady(false);
     setSceneProgress(0);
+    setHasSceneStarted(false);
   };
   const takeJumpRequest = useCallback(() => {
     const requested = jumpRequest.current;
@@ -88,6 +95,7 @@ export function ExhibitionApp() {
     jumpRequest.current = null;
     setIsSceneReady(false);
     setSceneProgress(0);
+    setHasSceneStarted(false);
   }, []);
 
   const closeDialog = () => {
@@ -152,14 +160,15 @@ export function ExhibitionApp() {
   }, [entered]);
 
   // Never trap visitors behind the cover: lift it after an upper bound even if an image is still loading.
+  // The clock starts only once the scene is mounted, so a slow code download never reveals an empty screen.
   useEffect(() => {
-    if (!entered || viewMode !== "3d" || isSceneReady) return;
+    if (!entered || viewMode !== "3d" || !webglAvailable || !hasSceneStarted || isSceneReady) return;
     const timeoutId = window.setTimeout(() => {
       console.warn("3D 전시관 로딩이 길어져 준비된 부분부터 보여줍니다.");
       setIsSceneReady(true);
     }, LOADING_COVER_MAX_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [entered, viewMode, isSceneReady]);
+  }, [entered, viewMode, webglAvailable, hasSceneStarted, isSceneReady]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setWebglAvailable(canUseWebGL()));
@@ -188,7 +197,7 @@ export function ExhibitionApp() {
   return (
     <main className="relative h-dvh overflow-hidden bg-[#0f1114]">
       <SceneErrorBoundary onError={() => setWebglAvailable(false)}>
-        <GalleryScene isVideoPlaying={isVideoPlaying} layout={layout} takeJumpRequest={takeJumpRequest} moveInput={moveInput} onLoadProgress={setSceneProgress} onReady={handleSceneReady} onRoomChange={handleRoomChange} onSelect={setSelectedArtwork} />
+        <GalleryScene isVideoPlaying={isVideoPlaying} layout={layout} takeJumpRequest={takeJumpRequest} moveInput={moveInput} onLoadProgress={handleLoadProgress} onReady={handleSceneReady} onRoomChange={handleRoomChange} onSelect={setSelectedArtwork} />
       </SceneErrorBoundary>
 
       <LoadingOverlay isReady={isSceneReady} progress={sceneProgress} />
