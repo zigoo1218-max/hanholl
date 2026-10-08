@@ -333,7 +333,7 @@ export function GalleryScene({ layout, moveInput, takeJumpRequest, onRoomChange,
   const [isHighQuality] = useState(detectHighQuality);
   return (
     <Canvas
-      camera={{ fov: 62, near: 0.1, far: 90, position: [0, 1.72, 0.6] }}
+      camera={{ fov: 62, near: 0.1, far: 90, position: [0, 1.72, layout.rooms[0]?.spawnZ ?? 0.6] }}
       dpr={isHighQuality ? [1, 1.75] : [1, 1.25]}
       frameloop={isVideoPlaying ? "never" : "always"}
       gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}

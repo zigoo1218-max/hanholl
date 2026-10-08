@@ -19,6 +19,11 @@ try {
   console.log("ffmpeg-static is not installed. Skipping thumbnail generation.");
   process.exit(0);
 }
+if (!ffmpegPath) {
+  // ffmpeg-static exports null on platforms it has no binary for; keep existing thumbnails.
+  console.log("ffmpeg-static has no binary for this platform. Skipping thumbnail generation.");
+  process.exit(0);
+}
 
 /** Candidate positions as a fraction of the video length, tried in order. */
 const CANDIDATE_FRACTIONS = [0.15, 0.25, 0.35, 0.5, 0.65];
@@ -26,6 +31,8 @@ const CANDIDATE_FRACTIONS = [0.15, 0.25, 0.35, 0.5, 0.65];
 const MIN_LUMA = 45;
 const MAX_LUMA = 215;
 const FALLBACK_SECONDS = 1.5;
+/** Used when the container reports no duration (e.g. some screen-recorded webm). */
+const ABSOLUTE_CANDIDATES = [1, 2, 4, 8];
 
 function readDurationSeconds(videoPath) {
   const probe = spawnSync(ffmpegPath, ["-hide_banner", "-i", videoPath], { encoding: "utf8" });
@@ -51,18 +58,20 @@ function measureLuma(videoPath, seconds) {
 /** Picks the first well-exposed candidate; otherwise the brightest one that is not blown out. */
 function pickTimestamp(videoPath) {
   const duration = readDurationSeconds(videoPath);
-  if (!duration) return { seconds: FALLBACK_SECONDS, luma: null, reason: "duration unknown" };
+  const candidates = duration
+    ? CANDIDATE_FRACTIONS.map((fraction) => Number((duration * fraction).toFixed(2)))
+    : ABSOLUTE_CANDIDATES;
 
   const measured = [];
-  for (const fraction of CANDIDATE_FRACTIONS) {
-    const seconds = Number((duration * fraction).toFixed(2));
+  for (const seconds of candidates) {
     const luma = measureLuma(videoPath, seconds);
     if (luma === null) continue;
     if (luma >= MIN_LUMA && luma <= MAX_LUMA) return { seconds, luma, reason: "well exposed" };
     measured.push({ seconds, luma });
   }
+  // Prefer the brightest frame that is not blown out; if every frame is blown out, take the least white one.
   const usable = measured.filter((item) => item.luma <= MAX_LUMA);
-  const best = (usable.length ? usable : measured).sort((a, b) => b.luma - a.luma)[0];
+  const best = usable.length ? usable.sort((a, b) => b.luma - a.luma)[0] : measured.sort((a, b) => a.luma - b.luma)[0];
   return best ? { ...best, reason: "best available" } : { seconds: FALLBACK_SECONDS, luma: null, reason: "measurement failed" };
 }
 
@@ -86,9 +95,14 @@ for (const { dir, videoFile } of findVideoFolders(mediaDir)) {
   const label = path.relative(mediaDir, dir);
   const videoPath = path.join(dir, videoFile);
   const thumbnailPath = path.join(dir, "thumbnail.jpg");
-  const { seconds, luma, reason } = pickTimestamp(videoPath);
   try {
+    const { seconds, luma, reason } = pickTimestamp(videoPath);
+    const before = fs.existsSync(thumbnailPath) ? fs.statSync(thumbnailPath).mtimeMs : 0;
     execFileSync(ffmpegPath, ["-y", "-loglevel", "error", "-ss", String(seconds), "-i", videoPath, "-frames:v", "1", "-q:v", "3", thumbnailPath], { stdio: "ignore" });
+    // ffmpeg exits 0 without writing when the timestamp is past the end of a very short clip.
+    if (!fs.existsSync(thumbnailPath) || fs.statSync(thumbnailPath).mtimeMs === before) {
+      throw new Error(`no frame written at ${seconds}s`);
+    }
     console.log(`✓ ${label}: ${seconds}s (luma ${luma === null ? "?" : luma.toFixed(0)}, ${reason})`);
   } catch (err) {
     failures += 1;

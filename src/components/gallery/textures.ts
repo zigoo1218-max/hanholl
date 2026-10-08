@@ -370,8 +370,16 @@ export function createGlassDoorTexture(): CanvasTextureResult {
   return toTexture(canvas);
 }
 
+const reservedImageCache = new Map<string, CanvasTextureResult>();
+
+/** One "작품 준비 중" image per room, shared by all its empty frames (10 frames would otherwise hold 10 identical canvases). */
+export function getSharedReservedTexture(room: Room): CanvasTextureResult {
+  if (!reservedImageCache.has(room.id)) reservedImageCache.set(room.id, createReservedTexture(room));
+  return reservedImageCache.get(room.id) ?? null;
+}
+
 /** Image for an empty frame held for a future work. */
-export function createReservedTexture(room: Room): CanvasTextureResult {
+function createReservedTexture(room: Room): CanvasTextureResult {
   const made = createCanvas(1024, 576);
   if (!made) return null;
   const { canvas, context } = made;

@@ -3,7 +3,7 @@
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { createPlaceholderTexture, createPlateTexture, createReservedPlateTexture, createReservedTexture, getSharedLightPoolTexture, getSharedShadowTexture } from "@/components/gallery/textures";
+import { createPlaceholderTexture, createPlateTexture, createReservedPlateTexture, getSharedLightPoolTexture, getSharedReservedTexture, getSharedShadowTexture } from "@/components/gallery/textures";
 import { ACCENT_COLORS } from "@/data/accents";
 import { captureVideoFrame } from "@/lib/video-utils";
 import type { Room } from "@/data/rooms";
@@ -282,9 +282,8 @@ export function ArtworkPanel({ artwork, side, z, isHighQuality, onSelect }: Artw
 /** Empty frame held for a future work ("작품 준비 중"); not clickable and never spotlit. */
 export function ReservedPanel({ room, slotNumber, side, z }: ReservedPanelProps) {
   const opening = useMemo(() => openingForAspect(16 / 9), []);
-  const image = useMemo(() => createReservedTexture(room), [room]);
+  const image = getSharedReservedTexture(room);
   const plate = useMemo(() => createReservedPlateTexture(room, slotNumber), [room, slotNumber]);
-  useEffect(() => () => image?.dispose(), [image]);
   useEffect(() => () => plate?.dispose(), [plate]);
   return <FramedPiece accent={room.accent} hasSpotlight={false} image={image} isHovered={false} opening={opening} plate={plate} side={side} z={z} />;
 }

@@ -15,8 +15,10 @@ import type { ShowcaseVideo } from "@/types/showcase";
 const IDLE_RESET_MS = 60000;
 
 /** info.json sits next to the video, so B실 (media/team1) and A실 (media/room-a/team1) works both resolve. */
-function infoUrlFor(video: ShowcaseVideo) {
-  return video.videoUrl.replace(/video\.[^/]+$/, "info.json");
+const VIDEO_FILE_RE = /video\.[^/]+$/;
+function infoUrlFor(video: ShowcaseVideo): string | null {
+  // Only derive when the file follows the media-folder convention; never fetch the video itself.
+  return VIDEO_FILE_RE.test(video.videoUrl) ? video.videoUrl.replace(VIDEO_FILE_RE, "info.json") : null;
 }
 
 const GalleryScene = dynamic(() => import("@/components/gallery-scene").then((module) => module.GalleryScene), {
@@ -74,6 +76,7 @@ export function ExhibitionApp() {
     setSelectedArtwork(null);
     setIsVideoPlaying(false);
     setCurrentRoom(0);
+    jumpRequest.current = null;
   };
 
   const closeDialog = () => {
@@ -104,8 +107,10 @@ export function ExhibitionApp() {
       const timestamp = Date.now();
       const updated = await Promise.all(
         showcaseVideos.map(async (video) => {
+          const infoUrl = infoUrlFor(video);
+          if (!infoUrl) return video;
           try {
-            const response = await fetch(`${infoUrlFor(video)}?v=${timestamp}`);
+            const response = await fetch(`${infoUrl}?v=${timestamp}`);
             if (response.ok) {
               const info = await response.json();
               return {

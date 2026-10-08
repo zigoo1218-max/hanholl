@@ -116,9 +116,9 @@
 
 - 정본 저장소: GitHub `zigoo1218-max/hanholl` (이 클론 `~/Projects/hanholl`). `~/Projects/school-showcase-gallery` 는 5월 31일 구버전 복사본이라 쓰지 않는다.
 - 로컬 실행: `NEXT_PUBLIC_BASE_PATH=/hanholl npx next dev --webpack -p 3003` 후 `http://localhost:3003/hanholl`. 빌드 검증은 `NEXT_PUBLIC_BASE_PATH=/hanholl npx next build` (npm run build 는 ffmpeg 썸네일 재생성이 먼저 돌아 썸네일 파일이 바뀔 수 있음).
-- 린트는 원본부터 실패 상태(`scripts/generate-thumbnails.js` require 구문 4건, `video-utils.ts`·`artwork-list-view.tsx` 경고) — 신규 오류만 본다.
+- 린트: 2026-10-08 2차부터 오류 0건, 기존 경고 2건(`video-utils.ts` 미사용 변수, `artwork-list-view.tsx` img)만 남음.
 - GitHub 인증: 이 Mac 의 gh 에 `zigoo1218-max` 와 `indexzigu` 두 계정이 있고 활성은 zigoo1218-max. 저장소 로컬 git 작성자는 zigoo1218-max 비공개 주소로 설정돼 있음. 푸시는 `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push …` 로 gh 토큰을 쓴다(키체인에 indexzigu 토큰이 남아 있어 그냥 push 하면 403).
-- 미결(오너 결정): ① 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤 확정 — `dev_docs/TASKS.md` 추가 태스크 참조 ② 프로젝터 현장 가독성 확인 ③ 1조 검은 썸네일 교체(`public/media/team1/thumbnail.jpg`, ffmpeg 추출 시각 조정 또는 수동 이미지), 3조·8조 영상·썸네일 파일 등록.
+- 미결(오너 결정): ① 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤 확정 — `dev_docs/TASKS.md` 추가 태스크 참조 ② 프로젝터 현장 가독성 확인 ③ 3조·8조 영상·썸네일 파일 등록 ④ A실이 입구 쪽(첫 방)이라 2학기 작품 전까지는 관람객이 빈 방부터 보게 됨 — 순서 유지 여부 오너 확인. (1조 검은 썸네일은 2026-10-08 2차에서 해결 ⛔ SUPERSEDED)
 - 필독: `src/components/gallery/*`(씬 구성 요소) · `src/components/gallery-scene.tsx`(홀 조립·품질 모드) · `src/data/accents.ts`(강조색) · 이 문서 2026-10-08 검증 로그.
 - PR 게이트 리뷰(표준 축·스펙 축) 반영: 캡션 플레이트가 다음 액자와 0.1m 겹치던 것 교정, 학생 이름 2줄, 플레이트 클릭 가능, 3D 화면용 스크린리더 작품 내비 추가, 작품 12개 초과 시 액자별 스포트라이트 생략, 강조색 상수 단일 모듈화(`src/data/accents.ts`), 캔버스 실패 경고, 재생 중 키보드 포커스 시 컨트롤 표시, 미사용 코드·CSS 제거
 - 리뷰에서 오너 결정으로 남긴 것: 요구사항 §3 톤(네이비·흰색·중립 회색, 절제)과 현재 다크 갤러리 톤의 불일치, 프로젝터에서 어두운 톤 가독성, 캡션 플레이트가 보행 거리에서 작게 보임(상세는 대화상자에서 확인)
