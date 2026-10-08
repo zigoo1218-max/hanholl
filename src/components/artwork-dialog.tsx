@@ -2,6 +2,7 @@
 
 import { AlertCircle, Maximize, Pause, Play, Users, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ACCENT_COLORS } from "@/data/accents";
 import { captureVideoFrame, resolveVideoUrl } from "@/lib/video-utils";
 import type { ShowcaseVideo } from "@/types/showcase";
 
@@ -12,12 +13,6 @@ type ArtworkDialogProps = {
 };
 
 type Orientation = "landscape" | "portrait";
-
-const ACCENT_COLORS: Record<ShowcaseVideo["accent"], string> = {
-  pine: "#4d9079",
-  hydrangea: "#9484c4",
-  navy: "#3f88b8",
-};
 
 function formatTime(time: number) {
   if (Number.isNaN(time)) return "0:00";
@@ -201,7 +196,7 @@ export function ArtworkDialog({ artwork, onClose, onVideoPlayingChange }: Artwor
                   <source src={videoUrl ? `${videoUrl}?v=${cacheBuster}` : undefined} />
                 </video>
 
-                <div className={`video-controls absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end gap-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
+                <div className={`video-controls absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end gap-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100" : "opacity-100"}`}>
                   <input
                     aria-label="재생 위치"
                     className="video-range"

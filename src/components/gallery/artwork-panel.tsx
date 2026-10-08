@@ -3,7 +3,8 @@
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { ACCENT_COLORS, createPlaceholderTexture, createPlateTexture, getSharedLightPoolTexture, getSharedShadowTexture } from "@/components/gallery/textures";
+import { createPlaceholderTexture, createPlateTexture, getSharedLightPoolTexture, getSharedShadowTexture } from "@/components/gallery/textures";
+import { ACCENT_COLORS } from "@/data/accents";
 import { captureVideoFrame } from "@/lib/video-utils";
 import type { ShowcaseVideo } from "@/types/showcase";
 
@@ -11,6 +12,9 @@ export const ROW_SPACING = 4.5;
 export const FIRST_ROW_Z = -4.2;
 const PANEL_X = 5.84;
 const FRAME_PADDING = 0.42;
+/** Plate geometry: offset 0.6 + width 1.0 keeps the right edge at 2.75 m from a 3.3 m frame centre, inside the 2.85 m to the next frame. */
+const PLATE_OFFSET = 0.6;
+const PLATE_WIDTH = 1.0;
 const CLICK_DRAG_TOLERANCE_PX = 6;
 
 /** Image opening sizes: height is fixed per orientation, width follows the real aspect within limits. */
@@ -26,7 +30,7 @@ type ArtworkPanelProps = {
 
 type Opening = { width: number; height: number; centerY: number; isPortrait: boolean };
 
-export function panelPosition(index: number): { side: -1 | 1; z: number } {
+function panelPosition(index: number): { side: -1 | 1; z: number } {
   const side = index % 2 === 0 ? -1 : 1;
   const row = Math.floor(index / 2);
   return { side, z: FIRST_ROW_Z - row * ROW_SPACING };
@@ -203,14 +207,25 @@ export function ArtworkPanel({ artwork, index, isHighQuality, onSelect }: Artwor
         <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={isHovered ? 3.2 : 1.6} toneMapped={false} />
       </mesh>
 
-      {/* Caption plate, mounted at reading height to the right of the frame. */}
-      <group position={[frameWidth / 2 + 0.72, -frameHeight / 2 + 0.56, 0.02]}>
+      {/* Caption plate beside the frame. Its right edge stays inside the 1.2 m gap to the next frame (ROW_SPACING - max frame width). */}
+      <group
+        position={[frameWidth / 2 + PLATE_OFFSET, -frameHeight / 2 + 0.52, 0.02]}
+        onClick={handleSelect}
+        onPointerOut={(event) => {
+          event.stopPropagation();
+          setIsHovered(false);
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          setIsHovered(true);
+        }}
+      >
         <mesh>
-          <boxGeometry args={[1.16, 0.58, 0.03]} />
+          <boxGeometry args={[PLATE_WIDTH, PLATE_WIDTH / 2, 0.03]} />
           <meshStandardMaterial color="#e9e3d7" roughness={0.9} />
         </mesh>
         <mesh position={[0, 0, 0.016]}>
-          <planeGeometry args={[1.12, 0.56]} />
+          <planeGeometry args={[PLATE_WIDTH - 0.04, PLATE_WIDTH / 2 - 0.02]} />
           <meshStandardMaterial map={plate} roughness={0.85} />
         </mesh>
       </group>

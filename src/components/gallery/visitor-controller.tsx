@@ -15,6 +15,9 @@ const HALL_HALF_WIDTH = 4.4;
 const ENTRANCE_LIMIT_Z = 1.8;
 const END_WALL_MARGIN = 5;
 const LANDSCAPE_FOV = 62;
+/** Scratch vectors reused every frame to avoid per-frame allocations. */
+const scratchForward = new THREE.Vector3();
+const scratchRight = new THREE.Vector3();
 const PORTRAIT_FOV = 80;
 const MAX_FRAME_DELTA = 0.1;
 
@@ -125,8 +128,8 @@ export function VisitorController({ hallLength, moveInput }: VisitorControllerPr
     camera.rotation.y = yaw.current;
     camera.rotation.x = pitch.current;
 
-    const forward = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
-    const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
+    const forward = scratchForward.set(0, 0, -1).applyEuler(camera.rotation);
+    const right = scratchRight.set(1, 0, 0).applyEuler(camera.rotation);
     forward.y = 0;
     right.y = 0;
     forward.normalize();

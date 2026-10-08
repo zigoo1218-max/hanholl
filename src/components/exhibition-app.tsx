@@ -181,6 +181,19 @@ export function ExhibitionApp() {
         )}
       </aside>
 
+      {/* Keyboard and screen-reader path to each artwork; the 3D canvas itself is not focusable. */}
+      <nav aria-label="작품 바로가기" className="sr-only">
+        <ul>
+          {artworks.map((artwork) => (
+            <li key={artwork.id}>
+              <button type="button" onClick={() => setSelectedArtwork(artwork)}>
+                {artwork.teamLabel} {artwork.title} {artwork.studentNames.join(" ")} 상세 보기
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       {isTouchDevice && (
         <div className="absolute bottom-3 right-3 z-20 sm:bottom-6 sm:right-6">
           <TouchPad inputRef={moveInput} />

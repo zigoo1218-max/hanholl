@@ -25,6 +25,8 @@ const MIN_HALL_LENGTH = 29;
 const BACKGROUND = "#0f1114";
 const WALL_COLOR = "#e6dfd2";
 const TRACK_X = 4.2;
+/** Above this many works, per-frame spotlights are dropped (light pools remain) to keep the light count sane on laptop GPUs. */
+const MAX_SPOTLIT_ARTWORKS = 12;
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 function hallLengthFor(count: number) {
@@ -224,7 +226,9 @@ function useLandscapeTexture() {
   return landscape;
 }
 
-function GalleryHall({ artworks, moveInput, onSelect, isHighQuality }: GallerySceneProps & { isHighQuality: boolean }) {
+type GalleryHallProps = Omit<GallerySceneProps, "isVideoPlaying"> & { isHighQuality: boolean };
+
+function GalleryHall({ artworks, moveInput, onSelect, isHighQuality }: GalleryHallProps) {
   const hallLength = hallLengthFor(artworks.length);
   const rows = Math.ceil(artworks.length / 2);
   const textures = useTextures(hallLength);
@@ -249,7 +253,7 @@ function GalleryHall({ artworks, moveInput, onSelect, isHighQuality }: GallerySc
       <Entrance landscape={landscape} textures={textures} />
       <Benches rows={rows} />
       {artworks.map((artwork, index) => (
-        <ArtworkPanel key={artwork.id} artwork={artwork} index={index} isHighQuality={isHighQuality} onSelect={onSelect} />
+        <ArtworkPanel key={artwork.id} artwork={artwork} index={index} isHighQuality={isHighQuality && artworks.length <= MAX_SPOTLIT_ARTWORKS} onSelect={onSelect} />
       ))}
       <VisitorController hallLength={hallLength} moveInput={moveInput} />
     </>
@@ -274,7 +278,7 @@ export function GalleryScene({ artworks, moveInput, onSelect, isVideoPlaying = f
       gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       style={{ touchAction: "none" }}
     >
-      <GalleryHall artworks={artworks} isHighQuality={isHighQuality} isVideoPlaying={isVideoPlaying} moveInput={moveInput} onSelect={onSelect} />
+      <GalleryHall artworks={artworks} isHighQuality={isHighQuality} moveInput={moveInput} onSelect={onSelect} />
     </Canvas>
   );
 }

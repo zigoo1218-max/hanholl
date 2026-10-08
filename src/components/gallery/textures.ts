@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { ACCENT_COLORS, ACCENT_LABELS } from "@/data/accents";
 import type { ShowcaseVideo } from "@/types/showcase";
 
 /**
@@ -6,17 +7,9 @@ import type { ShowcaseVideo } from "@/types/showcase";
  * offline on the event laptop without any image server.
  */
 
-export const ACCENT_COLORS: Record<ShowcaseVideo["accent"], string> = {
-  pine: "#4d9079",
-  hydrangea: "#9484c4",
-  navy: "#3f88b8",
-};
+export { ACCENT_COLORS } from "@/data/accents";
 
-const ACCENT_LABELS: Record<ShowcaseVideo["accent"], string> = {
-  pine: "PINE",
-  hydrangea: "HYDRANGEA",
-  navy: "NAVY",
-};
+export type CanvasTextureResult = THREE.CanvasTexture | null;
 
 const FONT_STACK = '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif';
 
@@ -25,7 +18,11 @@ function createCanvas(width: number, height: number) {
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext("2d");
-  return context ? { canvas, context } : null;
+  if (!context) {
+    console.warn(`2D 캔버스를 만들지 못해 ${width}×${height} 텍스처 없이 렌더링합니다.`);
+    return null;
+  }
+  return { canvas, context };
 }
 
 function toTexture(canvas: HTMLCanvasElement, repeat?: [number, number]) {
@@ -60,7 +57,7 @@ function sprinkleNoise(context: CanvasRenderingContext2D, size: number, count: n
 }
 
 /** Warm plaster wall with very fine grain. */
-export function createWallTexture(repeatX: number, repeatY: number) {
+export function createWallTexture(repeatX: number, repeatY: number): CanvasTextureResult {
   const made = createCanvas(512, 512);
   if (!made) return null;
   const { canvas, context } = made;
@@ -72,7 +69,7 @@ export function createWallTexture(repeatX: number, repeatY: number) {
 }
 
 /** Dark polished stone floor with large tiles and light grout. */
-export function createFloorTexture(repeatX: number, repeatY: number) {
+export function createFloorTexture(repeatX: number, repeatY: number): CanvasTextureResult {
   const made = createCanvas(512, 512);
   if (!made) return null;
   const { canvas, context } = made;
@@ -90,7 +87,7 @@ export function createFloorTexture(repeatX: number, repeatY: number) {
 }
 
 /** Soft radial fade used for fake contact shadows and light pools. */
-export function createRadialTexture(inner: string, outer: string) {
+export function createRadialTexture(inner: string, outer: string): CanvasTextureResult {
   const made = createCanvas(256, 256);
   if (!made) return null;
   const { canvas, context } = made;
@@ -104,23 +101,23 @@ export function createRadialTexture(inner: string, outer: string) {
   return texture;
 }
 
-let sharedShadow: THREE.Texture | null | undefined;
-let sharedLightPool: THREE.Texture | null | undefined;
+let sharedShadow: CanvasTextureResult | undefined;
+let sharedLightPool: CanvasTextureResult | undefined;
 
 /** One contact-shadow texture shared by every frame. */
-export function getSharedShadowTexture() {
+export function getSharedShadowTexture(): CanvasTextureResult {
   if (sharedShadow === undefined) sharedShadow = createRadialTexture("rgba(0, 0, 0, 0.55)", "rgba(0, 0, 0, 0)");
   return sharedShadow;
 }
 
 /** One warm light-pool texture shared by every picture light. */
-export function getSharedLightPoolTexture() {
+export function getSharedLightPoolTexture(): CanvasTextureResult {
   if (sharedLightPool === undefined) sharedLightPool = createRadialTexture("rgba(255, 238, 214, 0.5)", "rgba(255, 238, 214, 0)");
   return sharedLightPool;
 }
 
 /** Gradient card shown inside a frame while no thumbnail is available. */
-export function createPlaceholderTexture(accent: string, teamLabel: string, isPortrait: boolean) {
+export function createPlaceholderTexture(accent: string, teamLabel: string, isPortrait: boolean): CanvasTextureResult {
   const width = isPortrait ? 576 : 1024;
   const height = isPortrait ? 1024 : 576;
   const made = createCanvas(width, height);
@@ -183,7 +180,7 @@ function wrapByCharacter(context: CanvasRenderingContext2D, text: string, maxWid
 }
 
 /** Museum-style caption plate mounted beside each frame. */
-export function createPlateTexture(artwork: ShowcaseVideo) {
+export function createPlateTexture(artwork: ShowcaseVideo): CanvasTextureResult {
   const made = createCanvas(640, 320);
   if (!made) return null;
   const { canvas, context } = made;
@@ -209,13 +206,13 @@ export function createPlateTexture(artwork: ShowcaseVideo) {
   context.fillText(ACCENT_LABELS[artwork.accent], 48 + context.measureText(team).width + 36, 68);
 
   context.fillStyle = "#111b26";
-  context.font = `700 40px ${FONT_STACK}`;
-  wrapByCharacter(context, artwork.title, 540, 2).forEach((line, index) => context.fillText(line, 48, 130 + index * 50));
+  context.font = `700 38px ${FONT_STACK}`;
+  wrapByCharacter(context, artwork.title, 540, 2).forEach((line, index) => context.fillText(line, 48, 120 + index * 46));
 
+  // Student names get two lines so a full team list is not cut to one.
   context.fillStyle = "#56646f";
-  context.font = `500 24px ${FONT_STACK}`;
-  const [names = ""] = wrapByCharacter(context, artwork.studentNames.join(" · "), 540, 1);
-  context.fillText(names, 48, 262);
+  context.font = `500 22px ${FONT_STACK}`;
+  wrapByCharacter(context, artwork.studentNames.join(" · "), 540, 2).forEach((line, index) => context.fillText(line, 48, 230 + index * 30));
 
   context.fillStyle = "rgba(20, 28, 36, 0.3)";
   context.font = `600 16px ${FONT_STACK}`;
@@ -225,7 +222,7 @@ export function createPlateTexture(artwork: ShowcaseVideo) {
 }
 
 /** Large title wall that closes the far end of the hall. */
-export function createEndWallTexture() {
+export function createEndWallTexture(): CanvasTextureResult {
   const made = createCanvas(2048, 1024);
   if (!made) return null;
   const { canvas, context } = made;
@@ -290,7 +287,7 @@ export function createEndWallTexture() {
 }
 
 /** Entrance side walls: school identity in the same warm plaster finish. */
-export function createEntranceSideWallTexture(side: "left" | "right") {
+export function createEntranceSideWallTexture(side: "left" | "right"): CanvasTextureResult {
   const made = createCanvas(512, 1024);
   if (!made) return null;
   const { canvas, context } = made;
@@ -325,7 +322,7 @@ export function createEntranceSideWallTexture(side: "left" | "right") {
 }
 
 /** Transparent glass entrance door with slim dark frame and exit sign. */
-export function createGlassDoorTexture() {
+export function createGlassDoorTexture(): CanvasTextureResult {
   const made = createCanvas(512, 512);
   if (!made) return null;
   const { canvas, context } = made;
