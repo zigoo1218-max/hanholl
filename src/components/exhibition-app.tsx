@@ -7,6 +7,7 @@ import { ArtworkDialog } from "@/components/artwork-dialog";
 import { ArtworkListView } from "@/components/artwork-list-view";
 import { EntranceScreen } from "@/components/entrance-screen";
 import { computeHallLayout } from "@/components/gallery/layout";
+import { LoadingOverlay } from "@/components/gallery/loading-overlay";
 import { SceneErrorBoundary } from "@/components/gallery/scene-error-boundary";
 import { createMoveInput, TouchPad } from "@/components/gallery-controls";
 import { showcaseVideos } from "@/data/showcase-videos";
@@ -21,16 +22,16 @@ function infoUrlFor(video: ShowcaseVideo): string | null {
   return VIDEO_FILE_RE.test(video.videoUrl) ? video.videoUrl.replace(VIDEO_FILE_RE, "info.json") : null;
 }
 
-const GalleryScene = dynamic(() => import("@/components/gallery-scene").then((module) => module.GalleryScene), {
+/** Upper bound on the loading cover: after this the hall is shown even if an image is still loading. */
+const LOADING_COVER_MAX_MS = 20000;
+const PRELOAD_DELAY_MS = 1200;
+
+const loadGalleryScene = () => import("@/components/gallery-scene");
+
+// While the chunk downloads, the LoadingOverlay above already covers the screen.
+const GalleryScene = dynamic(() => loadGalleryScene().then((module) => module.GalleryScene), {
   ssr: false,
-  loading: () => (
-    <div className="grid h-full place-items-center bg-[#0f1114] text-sm font-semibold text-[#d9d2c4]">
-      <div className="flex flex-col items-center gap-3">
-        <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[#f4efe6]" />
-        3D 전시관을 준비하고 있습니다
-      </div>
-    </div>
-  ),
+  loading: () => null,
 });
 
 /** Touch state is only consumed after the visitor enters, so the server/client mismatch never reaches the DOM. */
@@ -62,6 +63,13 @@ export function ExhibitionApp() {
   const [currentRoom, setCurrentRoom] = useState(0);
   const layout = useMemo(() => computeHallLayout(artworks), [artworks]);
   const handleRoomChange = useCallback((roomIndex: number) => setCurrentRoom(roomIndex), []);
+  const [isSceneReady, setIsSceneReady] = useState(false);
+  const [sceneProgress, setSceneProgress] = useState(0);
+  const handleSceneReady = useCallback(() => setIsSceneReady(true), []);
+  const resetSceneLoading = () => {
+    setIsSceneReady(false);
+    setSceneProgress(0);
+  };
   const takeJumpRequest = useCallback(() => {
     const requested = jumpRequest.current;
     jumpRequest.current = null;
@@ -70,14 +78,17 @@ export function ExhibitionApp() {
 
   const activeArtwork = selectedArtwork ? (artworks.find((item) => item.id === selectedArtwork.id) ?? selectedArtwork) : null;
 
-  const returnToEntrance = () => {
+  // Stable (only setters and a ref) so the idle-reset timer below can depend on it.
+  const returnToEntrance = useCallback(() => {
     setEntered(false);
     setViewMode("3d");
     setSelectedArtwork(null);
     setIsVideoPlaying(false);
     setCurrentRoom(0);
     jumpRequest.current = null;
-  };
+    setIsSceneReady(false);
+    setSceneProgress(0);
+  }, []);
 
   const closeDialog = () => {
     setSelectedArtwork(null);
@@ -100,7 +111,7 @@ export function ExhibitionApp() {
       if (timeoutId) clearTimeout(timeoutId);
       events.forEach((event) => window.removeEventListener(event, resetTimer));
     };
-  }, [entered, isVideoPlaying]);
+  }, [entered, isVideoPlaying, returnToEntrance]);
 
   useEffect(() => {
     const loadAllInfo = async () => {
@@ -131,6 +142,25 @@ export function ExhibitionApp() {
     void loadAllInfo();
   }, []);
 
+  // Fetch the 3D code while the visitor is still on the landing page, so entering is faster.
+  useEffect(() => {
+    if (entered) return;
+    const timeoutId = window.setTimeout(() => {
+      loadGalleryScene().catch((error: unknown) => console.warn("3D 전시관 코드를 미리 받지 못했습니다. 입장할 때 다시 받습니다.", error));
+    }, PRELOAD_DELAY_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [entered]);
+
+  // Never trap visitors behind the cover: lift it after an upper bound even if an image is still loading.
+  useEffect(() => {
+    if (!entered || viewMode !== "3d" || isSceneReady) return;
+    const timeoutId = window.setTimeout(() => {
+      console.warn("3D 전시관 로딩이 길어져 준비된 부분부터 보여줍니다.");
+      setIsSceneReady(true);
+    }, LOADING_COVER_MAX_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [entered, viewMode, isSceneReady]);
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setWebglAvailable(canUseWebGL()));
     return () => window.cancelAnimationFrame(frame);
@@ -141,7 +171,10 @@ export function ExhibitionApp() {
   if (viewMode === "list" || !webglAvailable) {
     return (
       <>
-        <ArtworkListView artworks={artworks} canReturnTo3d={webglAvailable} onBack={() => setViewMode("3d")} onReturnToEntrance={returnToEntrance} onSelect={setSelectedArtwork} />
+        <ArtworkListView artworks={artworks} canReturnTo3d={webglAvailable} onBack={() => {
+            resetSceneLoading();
+            setViewMode("3d");
+          }} onReturnToEntrance={returnToEntrance} onSelect={setSelectedArtwork} />
         {!webglAvailable && (
           <div className="fixed bottom-4 left-1/2 z-30 w-[min(92vw,620px)] -translate-x-1/2 rounded-sm border border-[#c5d0d2] bg-white px-4 py-3 text-center text-xs leading-5 text-[#53636f] shadow-lg">
             이 브라우저에서는 3D 화면을 사용할 수 없어 작품 목록으로 안내합니다.
@@ -155,8 +188,10 @@ export function ExhibitionApp() {
   return (
     <main className="relative h-dvh overflow-hidden bg-[#0f1114]">
       <SceneErrorBoundary onError={() => setWebglAvailable(false)}>
-        <GalleryScene isVideoPlaying={isVideoPlaying} layout={layout} takeJumpRequest={takeJumpRequest} moveInput={moveInput} onRoomChange={handleRoomChange} onSelect={setSelectedArtwork} />
+        <GalleryScene isVideoPlaying={isVideoPlaying} layout={layout} takeJumpRequest={takeJumpRequest} moveInput={moveInput} onLoadProgress={setSceneProgress} onReady={handleSceneReady} onRoomChange={handleRoomChange} onSelect={setSelectedArtwork} />
       </SceneErrorBoundary>
+
+      <LoadingOverlay isReady={isSceneReady} progress={sceneProgress} />
 
       {/* Vignette keeps the HUD legible against bright walls without touching the 3D scene. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(5,8,12,0.55)_100%)]" />

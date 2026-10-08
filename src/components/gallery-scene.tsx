@@ -1,8 +1,8 @@
 "use client";
 
-import { Environment, Lightformer, MeshReflectorMaterial } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { Environment, Lightformer, MeshReflectorMaterial, useProgress } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { ArtworkPanel, ReservedPanel } from "@/components/gallery/artwork-panel";
 import { DOOR_HEIGHT, DOOR_WIDTH, ENTRANCE_Z, PARTITION_THICKNESS, ROW_SPACING, type HallLayout, type RoomLayout } from "@/components/gallery/layout";
@@ -18,8 +18,41 @@ type GallerySceneProps = {
   takeJumpRequest: () => number | null;
   onRoomChange: (roomIndex: number) => void;
   onSelect: (artwork: ShowcaseVideo) => void;
+  /** 0-100 share of scene images loaded, for the loading cover. */
+  onLoadProgress: (percent: number) => void;
+  /** Called once when the hall has been drawn with nothing left loading. */
+  onReady: () => void;
   isVideoPlaying?: boolean;
 };
+
+/** Frames to draw after loading settles before calling the hall ready (covers shader compilation). */
+const READY_FRAMES = 4;
+
+/**
+ * Reports image-loading progress and fires `onReady` once nothing is loading
+ * and a few frames have rendered. Textures register with three's default
+ * loading manager inside their mount effects, so loading is already "active"
+ * by the first frame and the cover cannot lift before images start.
+ */
+function LoadingReporter({ onLoadProgress, onReady }: Pick<GallerySceneProps, "onLoadProgress" | "onReady">) {
+  const isLoading = useProgress((state) => state.active);
+  const progress = useProgress((state) => state.progress);
+  const settledFrames = useRef(0);
+  const hasReported = useRef(false);
+
+  useEffect(() => {
+    onLoadProgress(isLoading ? progress : 100);
+  }, [isLoading, progress, onLoadProgress]);
+
+  useFrame(() => {
+    if (hasReported.current) return;
+    settledFrames.current = isLoading ? 0 : settledFrames.current + 1;
+    if (settledFrames.current < READY_FRAMES) return;
+    hasReported.current = true;
+    onReady();
+  });
+  return null;
+}
 
 const HALL_WIDTH = 12;
 const WALL_X = HALL_WIDTH / 2;
@@ -280,7 +313,7 @@ function useLandscapeTexture() {
 
 type GalleryHallProps = Omit<GallerySceneProps, "isVideoPlaying"> & { isHighQuality: boolean };
 
-function GalleryHall({ layout, moveInput, takeJumpRequest, onRoomChange, onSelect, isHighQuality }: GalleryHallProps) {
+function GalleryHall({ layout, moveInput, takeJumpRequest, onRoomChange, onSelect, onLoadProgress, onReady, isHighQuality }: GalleryHallProps) {
   const { hallLength, rooms } = layout;
   const hasSpotlights = isHighQuality && layout.artworkCount <= MAX_SPOTLIT_ARTWORKS;
   const textures = useTextures(hallLength);
@@ -316,6 +349,7 @@ function GalleryHall({ layout, moveInput, takeJumpRequest, onRoomChange, onSelec
           ),
         ),
       )}
+      <LoadingReporter onLoadProgress={onLoadProgress} onReady={onReady} />
       <VisitorController layout={layout} moveInput={moveInput} takeJumpRequest={takeJumpRequest} onRoomChange={onRoomChange} />
     </>
   );
@@ -329,7 +363,7 @@ function detectHighQuality() {
 }
 
 /** WebGL exhibition hall built from primitives and procedural textures only. */
-export function GalleryScene({ layout, moveInput, takeJumpRequest, onRoomChange, onSelect, isVideoPlaying = false }: GallerySceneProps) {
+export function GalleryScene({ layout, moveInput, takeJumpRequest, onRoomChange, onSelect, onLoadProgress, onReady, isVideoPlaying = false }: GallerySceneProps) {
   const [isHighQuality] = useState(detectHighQuality);
   return (
     <Canvas
@@ -339,7 +373,7 @@ export function GalleryScene({ layout, moveInput, takeJumpRequest, onRoomChange,
       gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       style={{ touchAction: "none" }}
     >
-      <GalleryHall isHighQuality={isHighQuality} layout={layout} moveInput={moveInput} takeJumpRequest={takeJumpRequest} onRoomChange={onRoomChange} onSelect={onSelect} />
+      <GalleryHall isHighQuality={isHighQuality} layout={layout} moveInput={moveInput} takeJumpRequest={takeJumpRequest} onLoadProgress={onLoadProgress} onReady={onReady} onRoomChange={onRoomChange} onSelect={onSelect} />
     </Canvas>
   );
 }

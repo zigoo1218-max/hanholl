@@ -230,3 +230,20 @@ a:focus-visible {
   font-weight: 600;
   opacity: 0.75;
 }
+
+/* Loading cover spinner; static ring for visitors who prefer reduced motion. */
+.loading-ring {
+  animation: loading-spin 1s linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-ring {
+    animation: none;
+  }
+}
