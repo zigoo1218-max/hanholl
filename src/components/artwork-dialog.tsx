@@ -1,9 +1,9 @@
 "use client";
 
-import { AlertCircle, Play, Pause, Volume2, VolumeX, Maximize, Users, X } from "lucide-react";
+import { AlertCircle, Maximize, Pause, Play, Users, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ShowcaseVideo } from "@/types/showcase";
 import { captureVideoFrame, resolveVideoUrl } from "@/lib/video-utils";
+import type { ShowcaseVideo } from "@/types/showcase";
 
 type ArtworkDialogProps = {
   artwork: ShowcaseVideo | null;
@@ -11,19 +11,31 @@ type ArtworkDialogProps = {
   onVideoPlayingChange?: (playing: boolean) => void;
 };
 
+type Orientation = "landscape" | "portrait";
+
+const ACCENT_COLORS: Record<ShowcaseVideo["accent"], string> = {
+  pine: "#4d9079",
+  hydrangea: "#9484c4",
+  navy: "#3f88b8",
+};
+
+function formatTime(time: number) {
+  if (Number.isNaN(time)) return "0:00";
+  const minutes = Math.floor(time / 60);
+  const seconds = Math.floor(time % 60);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 /**
- * Accessible caption dialog.
+ * Cinematic caption dialog.
  * - Video is loaded only after the visitor requests playback.
- * - Aspect ratio (16:9 or 9:16) is detected from the video metadata and the
- *   player container adapts accordingly.
- * - No thumbnail is shown inside the player; thumbnails appear only in the
- *   list view outside the gallery.
+ * - The player box follows the real media aspect (poster first, then video
+ *   metadata), so phone videos stand tall instead of being letterboxed.
  */
 export function ArtworkDialog({ artwork, onClose, onVideoPlayingChange }: ArtworkDialogProps) {
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
-  /** "landscape" | "portrait" | null — resolved once metadata is available */
-  const [orientation, setOrientation] = useState<"landscape" | "portrait" | null>(artwork?.orientation || null);
+  const [orientation, setOrientation] = useState<Orientation>(artwork?.orientation ?? "landscape");
   const [thumbnail, setThumbnail] = useState<string | null>(artwork?.thumbnailUrl || null);
   const [imageError, setImageError] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -31,10 +43,10 @@ export function ArtworkDialog({ artwork, onClose, onVideoPlayingChange }: Artwor
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [cacheBuster] = useState(() => Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-
 
   useEffect(() => {
     onVideoPlayingChange?.(isPlaying);
@@ -47,107 +59,113 @@ export function ArtworkDialog({ artwork, onClose, onVideoPlayingChange }: Artwor
     if (!artwork) return;
     closeButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        } else {
-          onClose();
-        }
+      if (event.key !== "Escape") return;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch((error: unknown) => console.warn("전체 화면을 닫지 못했습니다.", error));
+      } else {
+        onClose();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [artwork, onClose]);
 
-  // Reset state whenever the selected artwork changes
   useEffect(() => {
-    setShouldLoadVideo(false);
-    setVideoFailed(false);
-    setOrientation(artwork?.orientation || null);
-    setThumbnail(artwork?.thumbnailUrl || null);
-    setImageError(false);
-    setVideoUrl(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-    setIsMuted(false);
+    if (!artwork) return;
+    let isActive = true;
+    resolveVideoUrl(artwork.videoUrl).then((resolved) => {
+      if (!isActive) return;
+      setVideoUrl(resolved);
+      if (!artwork.thumbnailUrl) {
+        captureVideoFrame(resolved)
+          .then((dataUrl) => isActive && setThumbnail(dataUrl))
+          .catch((error: unknown) => console.warn(`${artwork.id}: 대표 프레임을 추출하지 못했습니다.`, error));
+      }
+    });
+    return () => {
+      isActive = false;
+    };
+  }, [artwork]);
 
-    if (artwork) {
-      resolveVideoUrl(artwork.videoUrl).then((resolved) => {
-        setVideoUrl(resolved);
-        if (!artwork.thumbnailUrl) {
-          captureVideoFrame(resolved)
-            .then((dataUrl) => setThumbnail(dataUrl))
-            .catch(() => {});
-        }
-      });
-    }
-  }, [artwork?.id, artwork?.orientation]);
+  if (!artwork) return null;
+
+  const accent = ACCENT_COLORS[artwork.accent];
+  const isPortrait = orientation === "portrait";
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
     if (isPlaying) {
-      videoRef.current.pause();
-    } else {
-      videoRef.current.play().catch(() => {});
+      video.pause();
+      return;
     }
+    video.play().catch((error: unknown) => console.warn("영상을 재생하지 못했습니다.", error));
   };
 
   const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!videoRef.current) return;
-    const time = parseFloat(e.target.value);
-    videoRef.current.currentTime = time;
+  const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const time = Number.parseFloat(event.target.value);
+    video.currentTime = time;
     setCurrentTime(time);
   };
 
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
+    const container = containerRef.current;
+    if (!container) return;
+    const request = document.fullscreenElement ? document.exitFullscreen() : container.requestFullscreen();
+    request.catch((error: unknown) => console.warn("전체 화면 전환에 실패했습니다.", error));
   };
 
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return "0:00";
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const recoverThumbnailFromVideo = () => {
+    setImageError(true);
+    if (!videoUrl) return;
+    captureVideoFrame(videoUrl)
+      .then((dataUrl) => {
+        setThumbnail(dataUrl);
+        setImageError(false);
+      })
+      .catch((error: unknown) => console.warn(`${artwork.id}: 대표 프레임을 추출하지 못했습니다.`, error));
   };
 
-  if (!artwork) return null;
-
-  const isPortrait = orientation === "portrait";
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-[#031421]/76 p-4 backdrop-blur-sm"
-      role="dialog"
       aria-labelledby="artwork-dialog-title"
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid place-items-center bg-[#05080c]/82 p-3 backdrop-blur-md sm:p-6"
+      role="dialog"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <article className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-sm bg-[#fbfaf7] text-[#071a2c] shadow-2xl">
-        <header className="flex items-start justify-between border-b border-[#d4dce0] px-5 py-4 sm:px-7">
-          <div>
-            <p className="text-xs font-bold tracking-[0.2em] text-[#5e8a79]">HANHOLL VIDEO EXHIBITION</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl" id="artwork-dialog-title">
+      <article className="relative max-h-[94dvh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1218] text-[#f4efe6] shadow-[0_40px_120px_rgba(0,0,0,0.6)]">
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${accent}, transparent 70%)` }} />
+
+        <header className="flex items-start justify-between gap-4 px-5 pb-4 pt-6 sm:px-7">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-[0.12em] text-[#0b1119]" style={{ background: accent }}>
+                {artwork.teamLabel}
+              </span>
+              <span className="text-[11px] font-bold tracking-[0.2em] text-white/45">HANHOLL VIDEO EXHIBITION</span>
+            </div>
+            <h2 className="mt-3 text-2xl font-bold leading-tight tracking-tight sm:text-3xl" id="artwork-dialog-title">
               {artwork.title}
             </h2>
           </div>
           <button
             ref={closeButtonRef}
             aria-label="작품 상세 닫기"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d4dce0] text-[#31516a] transition hover:bg-[#edf1ef]"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/5 text-white/80 transition hover:bg-white/15"
             type="button"
             onClick={onClose}
           >
@@ -155,122 +173,112 @@ export function ArtworkDialog({ artwork, onClose, onVideoPlayingChange }: Artwor
           </button>
         </header>
 
-        <div className="flex flex-col">
-          {/* Video section */}
-          <section className="bg-[#071a2c] p-4 sm:p-6">
-            <div ref={containerRef} className="mx-auto relative aspect-video w-full overflow-hidden rounded-sm bg-[radial-gradient(circle_at_top,#1f5373,#071a2c_70%)] group">
-              {shouldLoadVideo && !videoFailed ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    className="absolute inset-0 w-full h-full object-contain bg-black"
-                    autoPlay
-                    preload="metadata"
-                    onLoadedMetadata={(e) => {
-                      const v = e.currentTarget;
-                      setDuration(v.duration);
-                      if (!artwork?.orientation) {
-                        setOrientation(v.videoHeight > v.videoWidth ? "portrait" : "landscape");
-                      }
-                    }}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                    onDurationChange={(e) => setDuration(e.currentTarget.duration)}
-                    onError={() => setVideoFailed(true)}
-                    onClick={togglePlay}
-                  >
-                    <source src={videoUrl ? `${videoUrl}?v=${new Date().getTime()}` : undefined} />
-                  </video>
+        <section className="px-3 sm:px-7">
+          <div
+            ref={containerRef}
+            className={`group relative mx-auto overflow-hidden rounded-xl bg-black ${isPortrait ? "aspect-[9/16] h-[min(62dvh,640px)] w-auto max-w-full" : "aspect-video w-full"}`}
+          >
+            {shouldLoadVideo && !videoFailed ? (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  className="absolute inset-0 h-full w-full bg-black object-contain"
+                  playsInline
+                  preload="metadata"
+                  onClick={togglePlay}
+                  onDurationChange={(event) => setDuration(event.currentTarget.duration)}
+                  onError={() => setVideoFailed(true)}
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget;
+                    setDuration(video.duration);
+                    setOrientation(video.videoHeight > video.videoWidth ? "portrait" : "landscape");
+                  }}
+                  onPause={() => setIsPlaying(false)}
+                  onPlay={() => setIsPlaying(true)}
+                  onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+                >
+                  <source src={videoUrl ? `${videoUrl}?v=${cacheBuster}` : undefined} />
+                </video>
 
-                  {/* Custom controls visible only when hovering the bottom 24 area */}
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/95 via-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 gap-2 z-10 pointer-events-auto">
-                    {/* Progress Slider */}
-                    <div className="w-full flex items-center">
-                      <input
-                        type="range"
-                        min={0}
-                        max={duration || 100}
-                        value={currentTime}
-                        onChange={handleSeek}
-                        className="w-full h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
-                        style={{
-                          background: `linear-gradient(to right, #fbfaf7 0%, #fbfaf7 ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.3) ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.3) 100%)`
-                        }}
-                      />
+                <div className={`video-controls absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end gap-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-4 transition-opacity duration-300 ${isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
+                  <input
+                    aria-label="재생 위치"
+                    className="video-range"
+                    max={duration || 100}
+                    min={0}
+                    step={0.1}
+                    style={{ background: `linear-gradient(to right, #fbfaf7 0%, #fbfaf7 ${progress}%, rgba(255,255,255,0.25) ${progress}%, rgba(255,255,255,0.25) 100%)` }}
+                    type="range"
+                    value={currentTime}
+                    onChange={handleSeek}
+                  />
+                  <div className="flex items-center justify-between text-xs text-white">
+                    <div className="flex items-center gap-3">
+                      <button aria-label={isPlaying ? "일시정지" : "재생"} className="grid h-9 w-9 place-items-center rounded-full bg-white/15 transition hover:bg-white/30" type="button" onClick={togglePlay}>
+                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4 fill-white" />}
+                      </button>
+                      <span className="font-mono tabular-nums text-white/85">
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                      </span>
                     </div>
-                    {/* Controls Row */}
-                    <div className="flex items-center justify-between text-white text-xs">
-                      <div className="flex items-center gap-4">
-                        <button type="button" onClick={togglePlay} className="hover:scale-105 transition">
-                          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
-                        </button>
-                        <span className="font-mono">
-                          {formatTime(currentTime)} / {formatTime(duration)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <button type="button" onClick={toggleMute} className="hover:scale-105 transition">
-                          {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                        </button>
-                        <button type="button" onClick={toggleFullscreen} className="hover:scale-105 transition">
-                          <Maximize className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <button aria-label={isMuted ? "소리 켜기" : "소리 끄기"} className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-white/20" type="button" onClick={toggleMute}>
+                        {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </button>
+                      <button aria-label="전체 화면" className="grid h-9 w-9 place-items-center rounded-full transition hover:bg-white/20" type="button" onClick={toggleFullscreen}>
+                        <Maximize className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
-                </>
-              ) : videoFailed ? (
-                <div className="max-w-sm px-5 text-center text-white">
+                </div>
+              </>
+            ) : videoFailed ? (
+              <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_top,#1f3344,#0d1218_70%)] px-5 text-center">
+                <div className="max-w-sm">
                   <AlertCircle aria-hidden="true" className="mx-auto h-10 w-10 text-[#d8cbe5]" />
                   <p className="mt-4 text-lg font-bold">영상 준비 중입니다</p>
-                  <p className="mt-2 text-sm leading-6 text-white/70">행사 전 실제 영상 파일을 등록하면 이 위치에서 재생됩니다.</p>
+                  <p className="mt-2 text-sm leading-6 text-white/65">행사 전 실제 영상 파일을 등록하면 이 위치에서 재생됩니다.</p>
                 </div>
-              ) : (
-                /* Play button — show thumbnail cover background if available */
-                <div className="absolute inset-0 w-full h-full grid place-items-center">
-                  {thumbnail && !imageError && (
-                    <>
-                      <img 
-                        src={thumbnail} 
-                        alt="" 
-                        className="absolute inset-0 w-full h-full object-cover" 
-                        onError={() => {
-                          setImageError(true);
-                          if (videoUrl) {
-                            captureVideoFrame(videoUrl)
-                              .then((dataUrl) => {
-                                setThumbnail(dataUrl);
-                                setImageError(false);
-                              })
-                              .catch(() => {});
-                          }
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px]" />
-                    </>
-                  )}
-                  <button
-                    className="relative z-10 grid place-items-center gap-4 text-white transition hover:scale-105"
-                    type="button"
-                    onClick={() => setShouldLoadVideo(true)}
-                  >
-                    <span className="grid h-20 w-20 place-items-center rounded-full border border-white/55 bg-white/12 backdrop-blur-sm">
-                      <Play aria-hidden="true" className="ml-1 h-8 w-8" />
-                    </span>
-                    <span className="text-sm font-semibold tracking-wide">작품 영상 재생</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
+              </div>
+            ) : (
+              <div className="absolute inset-0 grid place-items-center">
+                {thumbnail && !imageError && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local poster chosen at runtime */}
+                    <img
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      src={thumbnail}
+                      onError={recoverThumbnailFromVideo}
+                      onLoad={(event) => {
+                        const image = event.currentTarget;
+                        setOrientation(image.naturalHeight > image.naturalWidth ? "portrait" : "landscape");
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/45" />
+                  </>
+                )}
+                <button className="relative z-10 grid place-items-center gap-4 text-white transition hover:scale-105" type="button" onClick={() => setShouldLoadVideo(true)}>
+                  <span className="grid h-20 w-20 place-items-center rounded-full border border-white/40 bg-white/10 shadow-[0_0_60px_rgba(255,255,255,0.18)] backdrop-blur-sm">
+                    <Play aria-hidden="true" className="ml-1 h-8 w-8 fill-white" />
+                  </span>
+                  <span className="text-sm font-semibold tracking-wide">작품 영상 재생</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
 
-          {/* Info section */}
-          <section className="p-6 sm:p-7">
-            <p className="text-sm font-bold text-[#5e8a79]">{artwork.teamLabel} · {artwork.studentNames.join(" · ")}</p>
-            <p className="mt-4 text-sm leading-7 text-[#53636f]">{artwork.caption}</p>
-          </section>
-        </div>
+        <section className="px-5 py-6 sm:px-7 sm:py-7">
+          <p className="text-[15px] leading-7 text-white/80">{artwork.caption}</p>
+          <div className="mt-5 flex items-center gap-2 border-t border-white/10 pt-4 text-sm text-white/60">
+            <Users aria-hidden="true" className="h-4 w-4" style={{ color: accent }} />
+            <span className="font-semibold text-white/85">{artwork.teamLabel}</span>
+            <span aria-hidden="true">·</span>
+            <span>{artwork.studentNames.join(" · ")}</span>
+          </div>
+        </section>
       </article>
     </div>
   );

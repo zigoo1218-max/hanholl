@@ -7,6 +7,8 @@
   --cream-50: #fbfaf7;
   --background: var(--cream-50);
   --foreground: var(--navy-950);
+  --hud-ink: #f4efe6;
+  --hud-muted: rgb(244 239 230 / 62%);
 }
 
 @theme inline {
@@ -35,6 +37,7 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
+/* Light glass used on the 2D list and fallback notices. */
 .glass-panel {
   background: rgb(251 250 247 / 90%);
   border: 1px solid rgb(255 255 255 / 64%);
@@ -42,52 +45,153 @@ a:focus-visible {
   backdrop-filter: blur(18px);
 }
 
-.hallway-label {
-  pointer-events: none;
-  width: 132px;
-  text-align: center;
+/* Dark glass HUD layered over the 3D hall. */
+.hud-panel {
+  color: var(--hud-ink);
+  background: rgb(9 12 18 / 58%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
-.hallway-label button {
-  pointer-events: auto;
-}
-
-.hallway-label .gallery-caption {
-  width: 132px;
-  border: 1px solid rgb(198 205 204 / 88%);
-  border-top: 3px solid var(--caption-accent, #477a69);
-  background: rgb(251 250 247 / 96%);
-  box-shadow: 0 3px 8px rgb(3 20 34 / 14%);
-  padding: 8px 9px 8px;
-  text-align: left;
-}
-
-.hallway-label strong {
-  display: block;
-  color: #123553;
-  font-size: 11px;
-  letter-spacing: -0.03em;
-  line-height: 1.3;
-}
-
-.hallway-label span {
-  color: #53636f;
-  font-size: 9px;
-  letter-spacing: 0.03em;
-  line-height: 1.35;
-}
-
-.hallway-label .gallery-team {
-  color: var(--caption-accent, #477a69);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.hallway-label .gallery-students {
-  display: block;
-  margin-top: 4px;
-  font-size: 7.5px;
-  line-height: 1.25;
+.hud-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 7%);
+  color: var(--hud-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.hud-button:hover {
+  background: rgb(255 255 255 / 14%);
+  border-color: rgb(255 255 255 / 26%);
+}
+
+.hud-button:active {
+  transform: scale(0.97);
+}
+
+.hud-button-accent {
+  background: rgb(244 239 230 / 92%);
+  border-color: transparent;
+  color: #0b1119;
+}
+
+.hud-button-accent:hover {
+  background: #ffffff;
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--hud-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.hud-chip kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 0.3rem;
+  background: rgb(255 255 255 / 8%);
+  color: var(--hud-ink);
+  font-family: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* On-screen directional pad for touch devices. */
+.touch-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 3.1rem);
+  grid-template-rows: repeat(3, 3.1rem);
+  gap: 0.2rem;
+  padding: 0.45rem;
+  border-radius: 1.6rem;
+  background: rgb(9 12 18 / 52%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.touch-pad-button {
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 10%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  color: var(--hud-ink);
+  touch-action: none;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.touch-pad-button:active {
+  background: rgb(244 239 230 / 85%);
+  color: #0b1119;
+  transform: scale(0.94);
+}
+
+.touch-pad-center {
+  grid-column: 2;
+  grid-row: 2;
+  place-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 22%);
+}
+
+/* Video progress slider inside the artwork dialog. */
+.video-range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+.video-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fbfaf7;
+  border: 2px solid #0b1119;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 25%);
+}
+
+.video-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fbfaf7;
+  border: 2px solid #0b1119;
+}
+
+/* Keep the player controls reachable on touch screens where hover does not exist. */
+@media (hover: none) {
+  .video-controls {
+    opacity: 1 !important;
+  }
 }
